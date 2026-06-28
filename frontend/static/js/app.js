@@ -1,3 +1,7 @@
+const SALUS_HEADERS = {
+  "X-Salus-Passphrase": "salus-secure"
+};
+
 // ── Clock ────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -34,7 +38,7 @@ function formatTs(ts) {
 async function loadMissions() {
   const el = document.getElementById('missions');
   try {
-    const res = await fetch('/missions');
+    const res = await fetch('/missions', { headers: SALUS_HEADERS });
     const data = await res.json();
     if (!data.missions.length) { el.innerHTML = '<span class="loading">No missions found.</span>'; return; }
     el.innerHTML = data.missions.map(m => `
@@ -55,7 +59,7 @@ async function loadMissions() {
 async function loadAgents() {
   const el = document.getElementById('agents');
   try {
-    const res = await fetch('/agents');
+    const res = await fetch('/agents', { headers: SALUS_HEADERS });
     const data = await res.json();
     if (!data.agents.length) { el.innerHTML = '<span class="loading">No agents found.</span>'; return; }
     el.innerHTML = data.agents.map(a => `
@@ -76,7 +80,7 @@ async function loadAgents() {
 async function loadSitreps() {
   const el = document.getElementById('sitreps');
   try {
-    const res = await fetch('/sitreps');
+    const res = await fetch('/sitreps', { headers: SALUS_HEADERS });
     const data = await res.json();
     if (!data.sitreps.length) {
       el.innerHTML = '<span class="loading">No SITREPs filed yet.</span>';
@@ -100,10 +104,10 @@ async function createSitrep() {
   const feedback = document.getElementById('sitrep-feedback');
   const payload = {
     top_priority: document.getElementById('top_priority').value.trim(),
-    blocker:      document.getElementById('blocker').value.trim(),
-    action_1:     document.getElementById('action_1').value.trim(),
-    action_2:     document.getElementById('action_2').value.trim(),
-    action_3:     document.getElementById('action_3').value.trim(),
+    blocker: document.getElementById('blocker').value.trim(),
+    action_1: document.getElementById('action_1').value.trim(),
+    action_2: document.getElementById('action_2').value.trim(),
+    action_3: document.getElementById('action_3').value.trim(),
   };
 
   if (!payload.top_priority) {
@@ -115,15 +119,19 @@ async function createSitrep() {
   try {
     const res = await fetch('/sitreps', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...SALUS_HEADERS,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(payload),
     });
+
     if (!res.ok) throw new Error();
 
-    // Clear form
     ['top_priority','blocker','action_1','action_2','action_3'].forEach(id => {
       document.getElementById(id).value = '';
     });
+
     feedback.style.color = 'var(--green)';
     feedback.textContent = 'SITREP filed successfully.';
     setTimeout(() => { feedback.textContent = ''; }, 3000);
