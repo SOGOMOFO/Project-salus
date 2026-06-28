@@ -1,49 +1,125 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Project Salus Mission Control</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Salus // Mission Control</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+
   <header>
-    <h1>Project Salus Mission Control</h1>
-    <p class="status">Status: Operational</p>
+    <div class="header-left">
+      <h1>Project Salus // Mission Control</h1>
+      <div class="tagline">COMMAND CENTER &nbsp;|&nbsp; PHASE 1 &nbsp;|&nbsp; v0.3</div>
+    </div>
+    <div class="header-right">
+      <div class="sys-status"><span class="pulse"></span>SYSTEMS NOMINAL</div>
+      <div id="sys-clock">--:--:-- UTC</div>
+    </div>
   </header>
 
   <main class="grid">
-    <section class="card">
-      <h2>Daily SITREP</h2>
-      <p>Ready</p>
+
+    <!-- ── SITREP (full-width top row) ──────────────────────────────── -->
+    <section class="card card-sitrep">
+      <div class="card-header">
+        <h2>Daily SITREP</h2>
+        <span class="badge badge-cyan">ACTIVE MODULE</span>
+      </div>
+      <div class="card-body">
+        <div class="sitrep-layout">
+
+          <div class="sitrep-form-col">
+            <label class="sitrep-form-label">Top Priority</label>
+            <input id="top_priority" type="text" placeholder="What matters most today?">
+
+            <label class="sitrep-form-label">Main Blocker</label>
+            <input id="blocker" type="text" placeholder="What is in the way?">
+
+            <label class="sitrep-form-label">Action 1</label>
+            <input id="action_1" type="text" placeholder="First action item">
+
+            <label class="sitrep-form-label">Action 2</label>
+            <input id="action_2" type="text" placeholder="Second action item">
+
+            <label class="sitrep-form-label">Action 3</label>
+            <input id="action_3" type="text" placeholder="Third action item">
+
+            <button class="btn" onclick="createSitrep()">SUBMIT SITREP</button>
+            <div id="sitrep-feedback"></div>
+          </div>
+
+          <div class="sitrep-history-col">
+            <div class="sitrep-section-label">Recent Reports</div>
+            <div id="sitreps"><span class="loading">Loading...</span></div>
+          </div>
+
+        </div>
+      </div>
     </section>
 
+    <!-- ── Missions ─────────────────────────────────────────────────── -->
     <section class="card">
-      <h2>Current Missions</h2>
-      <ul>
-        <li>Project Salus — Active</li>
-        <li>Cybersecurity Training — Active</li>
-        <li>Echo Seven Endeavors — Active</li>
-      </ul>
+      <div class="card-header">
+        <h2>Active Missions</h2>
+        <span class="badge badge-green">LIVE DATA</span>
+      </div>
+      <div class="card-body">
+        <div id="missions"><span class="loading">Loading...</span></div>
+      </div>
     </section>
 
+    <!-- ── Agent Status ──────────────────────────────────────────────── -->
     <section class="card">
-      <h2>AI Agent Status</h2>
-      <p>Framework pending</p>
+      <div class="card-header">
+        <h2>AI Agent Status</h2>
+        <span class="badge badge-green">LIVE DATA</span>
+      </div>
+      <div class="card-body">
+        <div id="agents"><span class="loading">Loading...</span></div>
+      </div>
     </section>
 
+    <!-- ── Health Intelligence ───────────────────────────────────────── -->
     <section class="card">
-      <h2>Health Intelligence</h2>
-      <p>Module pending</p>
+      <div class="card-header">
+        <h2>Health Intelligence</h2>
+        <span class="badge badge-muted">PENDING</span>
+      </div>
+      <div class="placeholder-body">
+        <div class="placeholder-icon">⚕</div>
+        <div class="placeholder-label">Module Offline</div>
+        <span class="badge badge-muted">Phase 2 Deployment</span>
+      </div>
     </section>
 
+    <!-- ── Finance Intelligence ──────────────────────────────────────── -->
     <section class="card">
-      <h2>Finance Intelligence</h2>
-      <p>Module pending</p>
+      <div class="card-header">
+        <h2>Finance Intelligence</h2>
+        <span class="badge badge-muted">PENDING</span>
+      </div>
+      <div class="placeholder-body">
+        <div class="placeholder-icon">$</div>
+        <div class="placeholder-label">Module Offline</div>
+        <span class="badge badge-muted">Phase 2 Deployment</span>
+      </div>
     </section>
 
+    <!-- ── Knowledge Base ────────────────────────────────────────────── -->
     <section class="card">
-      <h2>Knowledge Base</h2>
-      <p>Document search pending</p>
+      <div class="card-header">
+        <h2>Knowledge Base</h2>
+        <span class="badge badge-muted">PENDING</span>
+      </div>
+      <div class="placeholder-body">
+        <div class="placeholder-icon">&#x1F4DA;</div>
+        <div class="placeholder-label">Module Offline</div>
+        <span class="badge badge-muted">Phase 2 Deployment</span>
+      </div>
     </section>
+
   </main>
 
   <script src="/static/js/app.js"></script>
