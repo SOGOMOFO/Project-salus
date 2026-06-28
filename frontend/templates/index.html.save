@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Project Salus Mission Control</title>
+    <style>
+        body{
+            background:#111827;
+            color:white;
+            font-family:Arial,sans-serif;
+            margin:40px;
+        }
+
+        h1{
+            color:#22d3ee;
+        }
+
+        .card{
+            background:#1f2937;
+            padding:20px;
+            border-radius:12px;
+            margin-top:20px;
+        }
+
+        .status{
+            color:#22c55e;
+            font-weight:bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>PROJECT SALUS</h1>
+
+<div class="card">
+<h2>Mission Control</h2>
+<p class="status">SYSTEM ONLINE</p>
+</div>
+
+<div class="card">
+<h2>Today's Missions</h2>
+<ul id="missions"></ul>
+</div>
+
+<script>
+fetch("/missions")
+.then(r=>r.json())
+.then(data=>{
+let list=document.getElementById("missions");
+
+data.missions.forEach(m=>{
+let li=document.createElement("li");
+li.innerHTML=`<b>${m.name}</b> - ${m.status}`;
+list.appendChild(li);
+});
+});
+</script>
+
+</body>
+</html>
+
