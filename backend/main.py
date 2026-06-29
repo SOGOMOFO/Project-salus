@@ -80,6 +80,37 @@ async def system_status():
     }
 
 
+@app.get("/core/status")
+async def core_status():
+    return await system_status()
+
+
+@app.get("/core/memory/status")
+async def core_memory_status():
+    memory_snapshot = memory_engine.list()[:5]
+    return {
+        "status": "ok",
+        "memory": {
+            "status": "ready",
+            "entries": len(memory_snapshot),
+            "sample": memory_snapshot,
+        },
+    }
+
+
+@app.get("/core/agents")
+async def core_agents(x_salus_passphrase: str | None = Header(default=None)):
+    verify_passphrase(x_salus_passphrase)
+    agents = discover_agents()
+    return {"status": "ok", "agents": agents}
+
+
+@app.get("/core/plugins/status")
+async def core_plugins_status(x_salus_passphrase: str | None = Header(default=None)):
+    verify_passphrase(x_salus_passphrase)
+    return await plugin_health()
+
+
 @app.post("/auth")
 async def auth(request: Request):
     data = await request.json()
