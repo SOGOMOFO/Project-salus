@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Header, Request, HTTPException
 
 from backend.memory.memory_engine import add_memory, delete_memory, list_memories, search_memories
@@ -5,7 +7,7 @@ from backend.memory.models import MemoryCreateRequest
 
 router = APIRouter()
 
-SALUS_PASSPHRASE = "salus-secure"
+SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
 
 
 def verify_passphrase(x_salus_passphrase: str | None):

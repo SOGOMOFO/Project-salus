@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
+from backend.database import get_connection as get_db_connection
 from backend.memory.models import SUPPORTED_MEMORY_TYPES
 
 
@@ -15,11 +16,7 @@ def get_db_path() -> Path:
 
 
 def get_connection() -> sqlite3.Connection:
-    db_path = get_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_db_connection()
 
 
 def initialize_memory_store() -> None:
@@ -66,13 +63,22 @@ def _deserialize_tags(payload: Optional[str]) -> list[str]:
 
 
 def add_memory(
-    *,
+    content: Optional[str] = None,
     memory_type: str = "legacy",
     title: str = "",
-    content: str = "",
     tags: Optional[list[str]] = None,
     source: Optional[str] = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
+    if content is None and "content" in kwargs:
+        content = kwargs.pop("content")
+    if title == "" and "title" in kwargs:
+        title = kwargs.pop("title")
+    if tags is None and "tags" in kwargs:
+        tags = kwargs.pop("tags")
+    if source is None and "source" in kwargs:
+        source = kwargs.pop("source")
+
     if not content or not str(content).strip():
         raise ValueError("content is required")
 
@@ -94,14 +100,20 @@ def add_memory(
     )
     conn.commit()
     memory_id = cur.lastrowid
+    row = cur.execute(
+        "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE id = ?",
+        (memory_id,),
+    ).fetchone()
     conn.close()
     return {
-        "id": memory_id,
-        "memory_type": normalized_type,
-        "title": str(title or "").strip(),
-        "content": str(content).strip(),
-        "tags": tags or [],
-        "source": str(source or "").strip() or None,
+        "id": row[0],
+        "memory_type": row[1],
+        "title": row[2],
+        "content": row[3],
+        "tags": _deserialize_tags(row[4]),
+        "source": row[5],
+        "created_at": row[6],
+        "updated_at": row[7],
     }
 
 
