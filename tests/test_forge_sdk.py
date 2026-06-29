@@ -86,6 +86,34 @@ class ForgeSdkTests(unittest.TestCase):
             ]), 0)
             self.assertFalse((project_root / "backend" / "directorates" / "medical_intelligence").exists())
 
+    def test_plugins_cli_discovers_and_toggles(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            self.assertEqual(sdk.main([
+                "create-directorate",
+                "Plugin Demo",
+                "--project-root",
+                str(project_root),
+            ]), 0)
+            self.assertEqual(sdk.main([
+                "plugins",
+                "--project-root",
+                str(project_root),
+            ]), 0)
+            self.assertTrue((project_root / "backend" / "directorates" / "plugin_demo" / "plugin.json").exists())
+            self.assertEqual(sdk.main([
+                "enable",
+                "plugin_demo",
+                "--project-root",
+                str(project_root),
+            ]), 0)
+            self.assertEqual(sdk.main([
+                "disable",
+                "plugin_demo",
+                "--project-root",
+                str(project_root),
+            ]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

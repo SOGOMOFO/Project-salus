@@ -153,6 +153,21 @@ def _update_docs_index(root: Path, slug: str, title: str) -> None:
     index_path.write_text(content, encoding="utf-8")
 
 
+def _write_plugin_metadata(root: Path, slug: str, title: str, class_name: str) -> None:
+    plugin_dir = root / "backend" / "directorates" / slug
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    plugin_config = {
+        "name": title,
+        "slug": slug,
+        "version": "1.0.0",
+        "enabled": True,
+        "dependencies": [],
+        "health": {"status": "healthy"},
+        "class_name": f"{class_name}Directorate",
+    }
+    (plugin_dir / "plugin.json").write_text(json.dumps(plugin_config, indent=2), encoding="utf-8")
+
+
 def _append_log(root: Path, directorate: str, files_created: List[str], execution_time: float, success: bool) -> None:
     logs_dir = root / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -230,6 +245,56 @@ def rollback_directorate(name: str, project_root: Optional[Path | str] = None) -
     return {"directorate": title, "slug": slug, "rolled_back": True}
 
 
+def discover_plugins(project_root: Optional[Path | str] = None) -> List[Dict[str, Any]]:
+    root = Path(project_root or BASE_DIR).resolve()
+    plugins: List[Dict[str, Any]] = []
+    directorates_dir = root / "backend" / "directorates"
+    if not directorates_dir.exists():
+        return plugins
+
+    for child in sorted(directorates_dir.iterdir()):
+        if not child.is_dir():
+            continue
+        plugin_path = child / "plugin.json"
+        if not plugin_path.exists():
+            continue
+        try:
+            payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        plugins.append({
+            "name": payload.get("name", child.name),
+            "slug": payload.get("slug", child.name),
+            "version": payload.get("version", "0.0.0"),
+            "enabled": bool(payload.get("enabled", True)),
+            "health": payload.get("health", {"status": "unknown"}),
+            "path": str(child.relative_to(root)),
+        })
+    return plugins
+
+
+def enable_plugin(plugin_slug: str, project_root: Optional[Path | str] = None) -> Dict[str, Any]:
+    root = Path(project_root or BASE_DIR).resolve()
+    plugin_path = root / "backend" / "directorates" / plugin_slug / "plugin.json"
+    if not plugin_path.exists():
+        raise ValueError(f"Plugin '{plugin_slug}' not found")
+    payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+    payload["enabled"] = True
+    plugin_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return {"slug": plugin_slug, "enabled": True}
+
+
+def disable_plugin(plugin_slug: str, project_root: Optional[Path | str] = None) -> Dict[str, Any]:
+    root = Path(project_root or BASE_DIR).resolve()
+    plugin_path = root / "backend" / "directorates" / plugin_slug / "plugin.json"
+    if not plugin_path.exists():
+        raise ValueError(f"Plugin '{plugin_slug}' not found")
+    payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+    payload["enabled"] = False
+    plugin_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return {"slug": plugin_slug, "enabled": False}
+
+
 def create_directorate(name: str, project_root: Optional[Path | str] = None, overwrite: bool = False) -> Dict[str, Any]:
     if not validate_directorate_name(name):
         raise ValueError("Directorate name is invalid")
@@ -280,6 +345,7 @@ def create_directorate(name: str, project_root: Optional[Path | str] = None, ove
             created.append(str(destination.relative_to(root)))
 
         register_directorate(root, slug, title, class_name)
+        _write_plugin_metadata(root, slug, title, class_name)
         _update_api_router(root, slug, title)
         _update_navigation(root, slug, title)
         _update_docs_index(root, slug, title)

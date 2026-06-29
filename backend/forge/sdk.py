@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from backend.forge.generator import create_directorate, rollback_directorate
+from backend.forge.generator import create_directorate, discover_plugins, disable_plugin, enable_plugin, rollback_directorate
 from backend.forge.validator import validate_directorate_structure
 
 
@@ -25,6 +25,17 @@ def build_parser() -> argparse.ArgumentParser:
     rollback_parser = subparsers.add_parser("rollback", help="Rollback a generated directorate")
     rollback_parser.add_argument("name", nargs="?", default=None, help="Display name for the directorate")
     rollback_parser.add_argument("--project-root", default=None, help="Path to the project root")
+
+    plugins_parser = subparsers.add_parser("plugins", help="List discovered directorate plugins")
+    plugins_parser.add_argument("--project-root", default=None, help="Path to the project root")
+
+    enable_parser = subparsers.add_parser("enable", help="Enable a directorate plugin")
+    enable_parser.add_argument("plugin", help="Plugin slug")
+    enable_parser.add_argument("--project-root", default=None, help="Path to the project root")
+
+    disable_parser = subparsers.add_parser("disable", help="Disable a directorate plugin")
+    disable_parser.add_argument("plugin", help="Plugin slug")
+    disable_parser.add_argument("--project-root", default=None, help="Path to the project root")
     return parser
 
 
@@ -89,6 +100,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(str(exc))
             return 1
         print(f"Rolled back '{args.name}'")
+        return 0
+
+    if args.command == "plugins":
+        for plugin in discover_plugins(project_root or Path.cwd()):
+            enabled = "enabled" if plugin["enabled"] else "disabled"
+            print(f"{plugin['slug']} ({plugin['version']}) [{enabled}]")
+        return 0
+
+    if args.command == "enable":
+        try:
+            result = enable_plugin(args.plugin, project_root=project_root)
+        except (ValueError, RuntimeError) as exc:
+            print(str(exc))
+            return 1
+        print(f"Enabled plugin '{result['slug']}'")
+        return 0
+
+    if args.command == "disable":
+        try:
+            result = disable_plugin(args.plugin, project_root=project_root)
+        except (ValueError, RuntimeError) as exc:
+            print(str(exc))
+            return 1
+        print(f"Disabled plugin '{result['slug']}'")
         return 0
 
     parser.print_help()

@@ -1,4 +1,5 @@
 import ast
+import json
 import re
 from pathlib import Path
 from typing import List
@@ -57,6 +58,7 @@ def validate_directorate_structure(project_root: Path, slug: str, title: str) ->
         project_root / "backend" / "directorates" / slug / "memory.py",
         project_root / "backend" / "directorates" / slug / "prompts.py",
         project_root / "backend" / "directorates" / slug / "manifest.json",
+        project_root / "backend" / "directorates" / slug / "plugin.json",
         project_root / "docs" / slug / "README.md",
         project_root / "tests" / slug / f"test_{slug}.py",
     ]
@@ -67,5 +69,10 @@ def validate_directorate_structure(project_root: Path, slug: str, title: str) ->
     for path in expected_paths:
         if path.suffix == ".py" and not is_valid_python_file(path):
             raise ValueError(f"Invalid Python syntax in {path.relative_to(project_root)}")
+        if path.name == "plugin.json":
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid plugin configuration in {path.relative_to(project_root)}") from exc
 
     return [str(path.relative_to(project_root)) for path in expected_paths]
