@@ -153,19 +153,62 @@ def _update_docs_index(root: Path, slug: str, title: str) -> None:
     index_path.write_text(content, encoding="utf-8")
 
 
-def _write_plugin_metadata(root: Path, slug: str, title: str, class_name: str) -> None:
-    plugin_dir = root / "backend" / "directorates" / slug
-    plugin_dir.mkdir(parents=True, exist_ok=True)
-    plugin_config = {
+def _build_plugin_manifest(slug: str, title: str, class_name: str, dependencies: Optional[List[str]] = None) -> Dict[str, Any]:
+    return {
         "name": title,
         "slug": slug,
         "version": "1.0.0",
         "enabled": True,
-        "dependencies": [],
+        "dependencies": dependencies or [],
         "health": {"status": "healthy"},
         "class_name": f"{class_name}Directorate",
     }
+
+
+def _read_plugin_manifest(plugin_path: Path) -> Dict[str, Any]:
+    if plugin_path.exists():
+        try:
+            payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            payload = {}
+    else:
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    slug = plugin_path.parent.name
+    title = slug.replace("_", " ").title()
+    payload.setdefault("name", title)
+    payload.setdefault("slug", slug)
+    payload.setdefault("version", "1.0.0")
+    payload.setdefault("enabled", True)
+    payload.setdefault("dependencies", [])
+    payload.setdefault("health", {"status": "healthy"})
+    if not isinstance(payload.get("dependencies"), list):
+        payload["dependencies"] = []
+    if not isinstance(payload.get("health"), dict):
+        payload["health"] = {"status": "healthy"}
+    return payload
+
+
+def _write_plugin_metadata(root: Path, slug: str, title: str, class_name: str, dependencies: Optional[List[str]] = None) -> None:
+    plugin_dir = root / "backend" / "directorates" / slug
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    plugin_config = _build_plugin_manifest(slug, title, class_name, dependencies=dependencies)
     (plugin_dir / "plugin.json").write_text(json.dumps(plugin_config, indent=2), encoding="utf-8")
+
+
+def _get_plugin_health(plugin_dir: Path, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    defaults = {"status": "healthy"}
+    if payload and isinstance(payload.get("health"), dict):
+        defaults.update(payload["health"])
+    required_files = [plugin_dir / "__init__.py", plugin_dir / "plugin.json", plugin_dir / "manifest.json"]
+    missing = [path.name for path in required_files if not path.exists()]
+    if missing:
+        defaults["status"] = "degraded"
+        defaults["missing"] = missing
+    return defaults
 
 
 def _append_log(root: Path, directorate: str, files_created: List[str], execution_time: float, success: bool) -> None:
@@ -255,19 +298,17 @@ def discover_plugins(project_root: Optional[Path | str] = None) -> List[Dict[str
     for child in sorted(directorates_dir.iterdir()):
         if not child.is_dir():
             continue
-        plugin_path = child / "plugin.json"
-        if not plugin_path.exists():
+        if not (child / "__init__.py").exists() and not (child / "plugin.json").exists():
             continue
-        try:
-            payload = json.loads(plugin_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
+        payload = _read_plugin_manifest(child / "plugin.json")
+        health = _get_plugin_health(child, payload)
         plugins.append({
-            "name": payload.get("name", child.name),
+            "name": payload.get("name", child.name.replace("_", " ").title()),
             "slug": payload.get("slug", child.name),
-            "version": payload.get("version", "0.0.0"),
+            "version": payload.get("version", "1.0.0"),
             "enabled": bool(payload.get("enabled", True)),
-            "health": payload.get("health", {"status": "unknown"}),
+            "dependencies": payload.get("dependencies", []),
+            "health": health,
             "path": str(child.relative_to(root)),
         })
     return plugins
@@ -275,22 +316,26 @@ def discover_plugins(project_root: Optional[Path | str] = None) -> List[Dict[str
 
 def enable_plugin(plugin_slug: str, project_root: Optional[Path | str] = None) -> Dict[str, Any]:
     root = Path(project_root or BASE_DIR).resolve()
-    plugin_path = root / "backend" / "directorates" / plugin_slug / "plugin.json"
-    if not plugin_path.exists():
+    plugin_dir = root / "backend" / "directorates" / plugin_slug
+    plugin_path = plugin_dir / "plugin.json"
+    if not plugin_dir.exists() or not plugin_dir.is_dir():
         raise ValueError(f"Plugin '{plugin_slug}' not found")
-    payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+    payload = _read_plugin_manifest(plugin_path)
     payload["enabled"] = True
+    plugin_path.parent.mkdir(parents=True, exist_ok=True)
     plugin_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return {"slug": plugin_slug, "enabled": True}
 
 
 def disable_plugin(plugin_slug: str, project_root: Optional[Path | str] = None) -> Dict[str, Any]:
     root = Path(project_root or BASE_DIR).resolve()
-    plugin_path = root / "backend" / "directorates" / plugin_slug / "plugin.json"
-    if not plugin_path.exists():
+    plugin_dir = root / "backend" / "directorates" / plugin_slug
+    plugin_path = plugin_dir / "plugin.json"
+    if not plugin_dir.exists() or not plugin_dir.is_dir():
         raise ValueError(f"Plugin '{plugin_slug}' not found")
-    payload = json.loads(plugin_path.read_text(encoding="utf-8"))
+    payload = _read_plugin_manifest(plugin_path)
     payload["enabled"] = False
+    plugin_path.parent.mkdir(parents=True, exist_ok=True)
     plugin_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return {"slug": plugin_slug, "enabled": False}
 

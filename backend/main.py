@@ -6,8 +6,12 @@ from pathlib import Path
 import os
 
 from backend.database import init_db, seed_data, get_connection
+from backend.memory.registry import discover_agents
+from backend.memory.service import MemoryEngine
 
 SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
+memory_engine = MemoryEngine()
+memory_engine.initialize()
 
 
 @asynccontextmanager
@@ -44,6 +48,36 @@ async def home():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "version": "0.4.0"}
+
+
+@app.get("/plugins/health")
+async def plugin_health():
+    plugins = []
+    for agent in discover_agents():
+        plugins.append({
+            "name": agent["name"],
+            "status": agent["status"],
+            "module": agent["module"],
+        })
+    return {"plugins": plugins, "count": len(plugins)}
+
+
+@app.get("/system/status")
+async def system_status():
+    agents = discover_agents()
+    memory_snapshot = memory_engine.list()[:5]
+    return {
+        "status": "ok",
+        "version": "0.4.0",
+        "components": {
+            "memory": {"status": "ready", "entries": len(memory_snapshot)},
+            "agent_registry": {"status": "ready", "count": len(agents)},
+            "api": {"status": "ready"},
+        },
+        "plugins": [
+            {"name": agent["name"], "status": agent["status"]} for agent in agents
+        ],
+    }
 
 
 @app.post("/auth")
