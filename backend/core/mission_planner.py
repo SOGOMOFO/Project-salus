@@ -63,14 +63,17 @@ class MissionPlanner:
         conn.close()
 
         mission = _mission_row_to_dict(row)
-        initialize_memory_store()
-        add_memory(
-            memory_type="mission",
-            title=mission["title"],
-            content=mission["description"] or mission["title"],
-            tags=["mission-planner", mission["priority"]],
-            source="mission-planner",
-        )
+        try:
+            initialize_memory_store()
+            add_memory(
+                memory_type="mission",
+                title=mission["title"],
+                content=mission["description"] or mission["title"],
+                tags=["mission-planner", mission["priority"]],
+                source="mission-planner",
+            )
+        except Exception:
+            pass
         return mission
 
     def list_missions(self, status: Optional[str] = None) -> list[dict[str, Any]]:

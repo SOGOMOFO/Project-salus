@@ -96,14 +96,17 @@ class AgentRuntime:
 
         should_store = important or result["confidence"] >= 0.85
         if should_store:
-            initialize_memory_store()
-            add_memory(
-                memory_type="agent",
-                title=f"Agent run: {agent.name}",
-                content=json.dumps(result, sort_keys=True),
-                tags=["agent-runtime", "important-output"],
-                source=agent.name,
-            )
+            try:
+                initialize_memory_store()
+                add_memory(
+                    memory_type="agent",
+                    title=f"Agent run: {agent.name}",
+                    content=json.dumps(result, sort_keys=True),
+                    tags=["agent-runtime", "important-output"],
+                    source=agent.name,
+                )
+            except Exception:
+                pass
 
         return result
 

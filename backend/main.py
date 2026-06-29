@@ -8,6 +8,8 @@ import os
 from backend.database import init_db, seed_data, get_connection
 from backend.core.agent_runtime import AgentRuntime
 from backend.core.mission_planner import MissionPlanner
+from backend.core.commander_api import create_commander_router
+from backend.core.status import build_system_status
 from backend.directorates.investor_intelligence.api import (
     router as investor_intelligence_router,
     investor_intelligence_status,
@@ -57,6 +59,16 @@ def verify_passphrase(x_salus_passphrase: str | None):
         raise HTTPException(status_code=401, detail="Unauthorized access denied")
 
 
+core_router = create_commander_router(
+    agent_runtime=agent_runtime,
+    mission_planner=mission_planner,
+    memory_engine=memory_engine,
+    verify_passphrase=verify_passphrase,
+    version="0.4.0",
+)
+app.include_router(core_router)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return TEMPLATE_PATH.read_text()
@@ -81,34 +93,7 @@ async def plugin_health():
 
 @app.get("/system/status")
 async def system_status():
-    agents = discover_agents()
-    memory_snapshot = memory_engine.list()[:5]
-    return {
-        "status": "ok",
-        "version": "0.4.0",
-        "components": {
-            "memory": {"status": "ready", "entries": len(memory_snapshot)},
-            "agent_registry": {"status": "ready", "count": len(agents)},
-            "api": {"status": "ready"},
-        },
-        "plugins": [
-            {"name": agent["name"], "status": agent["status"]} for agent in agents
-        ],
-    }
-
-
-@app.get("/core/status")
-async def core_status():
-    payload = await system_status()
-    payload["components"]["agent_runtime"] = {
-        "status": "ready",
-        "count": len(agent_runtime.list_agents()),
-    }
-    payload["components"]["mission_planner"] = {
-        "status": "ready",
-        "count": len(mission_planner.list_missions()),
-    }
-    return payload
+    return build_system_status(version="0.4.0", memory_engine=memory_engine)
 
 
 @app.get("/core/memory/status")
@@ -124,61 +109,13 @@ async def core_memory_status():
     }
 
 
-@app.get("/core/agents")
-async def core_agents(x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    agents = agent_runtime.list_agents()
-    return {"status": "ok", "agents": agents}
-
-
-@app.post("/core/agents/{name}/run")
-async def run_core_agent(
-    name: str,
-    request: Request,
-    x_salus_passphrase: str | None = Header(default=None),
-):
-    verify_passphrase(x_salus_passphrase)
-    data = await request.json()
-    result = agent_runtime.run_agent(
-        name,
-        data.get("input", {}) if isinstance(data, dict) else {},
-        important=bool(data.get("important", False)) if isinstance(data, dict) else False,
-    )
-    return result
-
-
-@app.get("/core/missions")
-async def core_missions(x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    missions = mission_planner.list_missions()
-    return {"status": "ok", "missions": missions}
-
-
-@app.post("/core/missions")
-async def create_core_mission(
-    request: Request,
-    x_salus_passphrase: str | None = Header(default=None),
-):
-    verify_passphrase(x_salus_passphrase)
-    data = await request.json()
-    mission = mission_planner.create_mission(
-        title=str(data.get("title", "")).strip(),
-        description=str(data.get("description", "")).strip(),
-        priority=str(data.get("priority", "medium")).strip(),
-    )
-    return {"status": "created", "mission": mission}
-
-
-@app.post("/core/missions/{mission_id}/complete")
-async def complete_core_mission(
-    mission_id: int,
-    x_salus_passphrase: str | None = Header(default=None),
-):
-    verify_passphrase(x_salus_passphrase)
-    mission = mission_planner.complete_mission(mission_id)
-    if not mission:
-        return {"status": "not_found", "id": mission_id}
-    return {"status": "completed", "mission": mission}
+# Re-export core handlers for direct unit tests that import from backend.main.
+core_status = next(route.endpoint for route in core_router.routes if route.path == "/core/status" and "GET" in route.methods)
+core_agents = next(route.endpoint for route in core_router.routes if route.path == "/core/agents" and "GET" in route.methods)
+run_core_agent = next(route.endpoint for route in core_router.routes if route.path == "/core/agents/{name}/run" and "POST" in route.methods)
+core_missions = next(route.endpoint for route in core_router.routes if route.path == "/core/missions" and "GET" in route.methods)
+create_core_mission = next(route.endpoint for route in core_router.routes if route.path == "/core/missions" and "POST" in route.methods)
+complete_core_mission = next(route.endpoint for route in core_router.routes if route.path == "/core/missions/{mission_id}/complete" and "POST" in route.methods)
 
 
 @app.get("/core/plugins/status")
