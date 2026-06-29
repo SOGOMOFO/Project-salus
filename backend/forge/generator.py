@@ -351,7 +351,7 @@ def create_directorate(name: str, project_root: Optional[Path | str] = None, ove
     title = titleize(name)
     class_name = classify_name(slug)
 
-    if is_duplicate_directorate(root, slug, title):
+    if is_duplicate_directorate(root, slug, title) and not overwrite:
         raise ValueError(f"Directorate '{title}' already exists")
 
     components = build_directorate_components(slug=slug, title=title, class_name=class_name)

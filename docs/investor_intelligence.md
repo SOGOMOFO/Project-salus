@@ -15,8 +15,9 @@ Deliver educational, evidence-driven investment analysis that improves decision 
 1. Ingest thesis, bear/bull cases, and assumptions.
 2. Score nine core factors on a 0-100 scale.
 3. Run expert panel interpretation.
-4. Apply confidence and risk/reward policy.
-5. Emit structured recommendation with disclaimer.
+4. Run scenario engine and portfolio model synthesis.
+5. Apply recommendation engine with confidence and risk/reward policy.
+6. Emit structured recommendation with disclaimer.
 
 ## Expert Panel
 - Value Analyst
@@ -62,6 +63,32 @@ Rule:
 - Recommendation outputs: `Buy`, `Hold`, `Monitor`, `Avoid`.
 - Elevated risk or weak evidence should avoid aggressive recommendations.
 - No brokerage execution or account connectivity is enabled in v1.
+
+## Scenario Engine
+Scenario engine outputs directional states for:
+- recession
+- inflation_shock
+- market_crash
+- interest_rate_change
+- geopolitical_conflict
+- ai_adoption_acceleration
+
+## Portfolio Model
+Portfolio model output includes:
+- fit_summary
+- suggested_sizing
+- risk_budget_used
+- rebalance_trigger
+
+## Recommendation Engine
+Recommendation engine returns one of:
+- Buy
+- Hold
+- Monitor
+- Avoid
+
+Policy guardrail remains active:
+- Confidence below 80 defaults to `Monitor` unless risk/reward is exceptional.
 
 ## AI Investment Categories
 - infrastructure

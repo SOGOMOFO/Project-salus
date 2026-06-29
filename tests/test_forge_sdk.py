@@ -114,6 +114,31 @@ class ForgeSdkTests(unittest.TestCase):
                 str(project_root),
             ]), 0)
 
+    def test_generator_alias_commands(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            self.assertEqual(sdk.main([
+                "create-directorate",
+                "Alpha Intel",
+                "--project-root",
+                str(project_root),
+            ]), 0)
+
+            for command in [
+                "generate-agent",
+                "generate-service",
+                "generate-api",
+                "generate-tests",
+                "generate-docs",
+                "update-registry",
+            ]:
+                self.assertEqual(sdk.main([
+                    command,
+                    "Alpha Intel",
+                    "--project-root",
+                    str(project_root),
+                ]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

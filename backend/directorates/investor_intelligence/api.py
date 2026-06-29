@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, Request
 
 from backend.directorates.investor_intelligence.service import InvestorIntelligenceService
+from backend.security.core import security_core
 
 
 router = APIRouter(prefix="/investor-intelligence", tags=["investor-intelligence"])
 service = InvestorIntelligenceService()
 SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
-
-
-def _verify_passphrase(x_salus_passphrase: str | None):
-    if x_salus_passphrase != SALUS_PASSPHRASE:
-        raise HTTPException(status_code=401, detail="Unauthorized access denied")
 
 
 @router.get("/status")
@@ -31,8 +27,16 @@ async def investor_intelligence_framework():
 async def investor_intelligence_analyze(
     request: Request,
     x_salus_passphrase: str | None = Header(default=None),
+    x_salus_token: str | None = Header(default=None),
+    x_salus_role: str | None = Header(default=None),
 ):
-    _verify_passphrase(x_salus_passphrase)
+    security_core.authorize(
+        action="investor.analyze",
+        x_salus_passphrase=x_salus_passphrase,
+        x_salus_token=x_salus_token,
+        x_salus_role=x_salus_role,
+        allowed_roles={"commander", "family", "agent"},
+    )
     payload = await request.json()
     if not isinstance(payload, dict):
         payload = {}

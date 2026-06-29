@@ -66,3 +66,5 @@ class AnalyzeResponse(BaseModel):
     disclaimer: str
     risk_reward: dict[str, float | bool]
     panel_summary: list[dict[str, str]]
+    scenario_outlook: dict[str, str]
+    portfolio_model: dict[str, str | float]

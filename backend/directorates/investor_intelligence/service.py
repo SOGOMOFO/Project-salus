@@ -5,11 +5,13 @@ from typing import Any
 from backend.directorates.investor_intelligence.agent import build_expert_panel
 from backend.directorates.investor_intelligence.framework import get_framework
 from backend.directorates.investor_intelligence.models import AnalyzeRequest, AnalyzeResponse
+from backend.directorates.investor_intelligence.portfolio import build_portfolio_model
+from backend.directorates.investor_intelligence.recommendation import build_recommendation
 from backend.directorates.investor_intelligence.risk import compute_risk_reward, synthesize_risks
+from backend.directorates.investor_intelligence.scenarios import run_scenarios
 from backend.directorates.investor_intelligence.scoring import (
     compute_composite_score,
     compute_confidence,
-    recommendation_for,
 )
 from backend.memory.memory_engine import add_memory, initialize_memory_store
 from backend.memory.models import SUPPORTED_MEMORY_TYPES
@@ -51,12 +53,14 @@ class InvestorIntelligenceService:
         )
         risk_reward = compute_risk_reward(scores)
 
-        recommendation = recommendation_for(
+        recommendation = build_recommendation(
             composite_score=composite_score,
             confidence_band=confidence,
             exceptional_risk_reward=bool(risk_reward["exceptional"]),
             risk_score=scores["risk"],
         )
+        scenario_outlook = run_scenarios(scores)
+        portfolio_model = build_portfolio_model(request.portfolio_fit, scores["risk"], scores["conviction"])
 
         panel_summary = [expert.evaluate(scores) for expert in build_expert_panel()]
         risks = synthesize_risks(scores, request.risks)
@@ -76,6 +80,8 @@ class InvestorIntelligenceService:
             disclaimer=DISCLAIMER,
             risk_reward=risk_reward,
             panel_summary=panel_summary,
+            scenario_outlook=scenario_outlook,
+            portfolio_model=portfolio_model,
         ).model_dump()
         response["composite_score"] = composite_score
 

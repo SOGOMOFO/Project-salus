@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from backend.database import get_connection as get_db_connection
+from backend.memory.importance import calculate_importance
 from backend.memory.models import SUPPORTED_MEMORY_TYPES
 
 
@@ -31,11 +32,17 @@ def initialize_memory_store() -> None:
             content TEXT NOT NULL,
             tags TEXT,
             source TEXT,
+            importance REAL NOT NULL DEFAULT 0.5,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
+    columns = {
+        row[1] for row in cur.execute("PRAGMA table_info(memories)").fetchall()
+    }
+    if "importance" not in columns:
+        cur.execute("ALTER TABLE memories ADD COLUMN importance REAL NOT NULL DEFAULT 0.5")
     conn.commit()
     conn.close()
 
@@ -68,6 +75,7 @@ def add_memory(
     title: str = "",
     tags: Optional[list[str]] = None,
     source: Optional[str] = None,
+    importance: Optional[float] = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     if content is None and "content" in kwargs:
@@ -78,17 +86,27 @@ def add_memory(
         tags = kwargs.pop("tags")
     if source is None and "source" in kwargs:
         source = kwargs.pop("source")
+    if importance is None and "importance" in kwargs:
+        importance = kwargs.pop("importance")
 
     if not content or not str(content).strip():
         raise ValueError("content is required")
 
     normalized_type = _normalize_memory_type(memory_type)
+    initialize_memory_store()
+    normalized_importance = (
+        float(importance)
+        if importance is not None
+        else calculate_importance(content=str(content), tags=tags, source=source)
+    )
+    normalized_importance = max(0.0, min(1.0, normalized_importance))
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO memories (memory_type, title, content, tags, source, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO memories (memory_type, title, content, tags, source, importance, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
         (
             normalized_type,
@@ -96,12 +114,13 @@ def add_memory(
             str(content).strip(),
             _serialize_tags(tags),
             str(source or "").strip() or None,
+            normalized_importance,
         ),
     )
     conn.commit()
     memory_id = cur.lastrowid
     row = cur.execute(
-        "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE id = ?",
+        "SELECT id, memory_type, title, content, tags, source, importance, created_at, updated_at FROM memories WHERE id = ?",
         (memory_id,),
     ).fetchone()
     conn.close()
@@ -112,22 +131,24 @@ def add_memory(
         "content": row[3],
         "tags": _deserialize_tags(row[4]),
         "source": row[5],
-        "created_at": row[6],
-        "updated_at": row[7],
+        "importance": float(row[6]),
+        "created_at": row[7],
+        "updated_at": row[8],
     }
 
 
 def list_memories(memory_type: Optional[str] = None) -> list[dict[str, Any]]:
+    initialize_memory_store()
     conn = get_connection()
     cur = conn.cursor()
     if memory_type:
         cur.execute(
-            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE memory_type = ? ORDER BY id DESC",
+            "SELECT id, memory_type, title, content, tags, source, importance, created_at, updated_at FROM memories WHERE memory_type = ? ORDER BY id DESC",
             (_normalize_memory_type(memory_type),),
         )
     else:
         cur.execute(
-            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories ORDER BY id DESC"
+            "SELECT id, memory_type, title, content, tags, source, importance, created_at, updated_at FROM memories ORDER BY id DESC"
         )
     rows = cur.fetchall()
     conn.close()
@@ -139,8 +160,9 @@ def list_memories(memory_type: Optional[str] = None) -> list[dict[str, Any]]:
             "content": row[3],
             "tags": _deserialize_tags(row[4]),
             "source": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
+            "importance": float(row[6]),
+            "created_at": row[7],
+            "updated_at": row[8],
         }
         for row in rows
     ]
@@ -150,17 +172,18 @@ def search_memories(query: str, memory_type: Optional[str] = None) -> list[dict[
     if not query or not str(query).strip():
         return []
 
+    initialize_memory_store()
     conn = get_connection()
     cur = conn.cursor()
     search_term = f"%{str(query).strip()}%"
     if memory_type:
         cur.execute(
-            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE memory_type = ? AND (title LIKE ? OR content LIKE ? OR source LIKE ?) ORDER BY id DESC",
+            "SELECT id, memory_type, title, content, tags, source, importance, created_at, updated_at FROM memories WHERE memory_type = ? AND (title LIKE ? OR content LIKE ? OR source LIKE ?) ORDER BY id DESC",
             (_normalize_memory_type(memory_type), search_term, search_term, search_term),
         )
     else:
         cur.execute(
-            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE title LIKE ? OR content LIKE ? OR source LIKE ? ORDER BY id DESC",
+            "SELECT id, memory_type, title, content, tags, source, importance, created_at, updated_at FROM memories WHERE title LIKE ? OR content LIKE ? OR source LIKE ? ORDER BY id DESC",
             (search_term, search_term, search_term),
         )
     rows = cur.fetchall()
@@ -173,14 +196,16 @@ def search_memories(query: str, memory_type: Optional[str] = None) -> list[dict[
             "content": row[3],
             "tags": _deserialize_tags(row[4]),
             "source": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
+            "importance": float(row[6]),
+            "created_at": row[7],
+            "updated_at": row[8],
         }
         for row in rows
     ]
 
 
 def delete_memory(memory_id: int) -> bool:
+    initialize_memory_store()
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM memories WHERE id = ?", (int(memory_id),))

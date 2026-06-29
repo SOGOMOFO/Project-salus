@@ -36,6 +36,19 @@ def build_parser() -> argparse.ArgumentParser:
     disable_parser = subparsers.add_parser("disable", help="Disable a directorate plugin")
     disable_parser.add_argument("plugin", help="Plugin slug")
     disable_parser.add_argument("--project-root", default=None, help="Path to the project root")
+
+    for command, help_text in [
+        ("generate-agent", "Generate agent module for a directorate"),
+        ("generate-service", "Generate service module for a directorate"),
+        ("generate-api", "Generate API module for a directorate"),
+        ("generate-tests", "Generate tests for a directorate"),
+        ("generate-docs", "Generate documentation for a directorate"),
+        ("update-registry", "Update registry entries for a directorate"),
+    ]:
+        parser_item = subparsers.add_parser(command, help=help_text)
+        parser_item.add_argument("name", help="Display name for the directorate")
+        parser_item.add_argument("--project-root", default=None, help="Path to the project root")
+        parser_item.add_argument("--overwrite", action="store_true", help="Overwrite existing generated files")
     return parser
 
 
@@ -124,6 +137,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(str(exc))
             return 1
         print(f"Disabled plugin '{result['slug']}'")
+        return 0
+
+    if args.command in {
+        "generate-agent",
+        "generate-service",
+        "generate-api",
+        "generate-tests",
+        "generate-docs",
+        "update-registry",
+    }:
+        try:
+            result = create_directorate(name=args.name, project_root=project_root, overwrite=True)
+        except (ValueError, RuntimeError) as exc:
+            print(str(exc))
+            return 1
+        print(f"Updated '{result['directorate']}' for command '{args.command}'")
         return 0
 
     parser.print_help()
