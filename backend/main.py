@@ -6,6 +6,9 @@ from pathlib import Path
 import os
 
 from backend.database import init_db, seed_data, get_connection
+from backend.core.agent_runtime import AgentRuntime
+from backend.core.mission_planner import MissionPlanner
+from backend.directorates.investor_intelligence import DIRECTORATE as investor_intelligence
 from backend.api.memory import router as memory_router
 from backend.memory.registry import discover_agents
 from backend.memory.service import MemoryEngine
@@ -15,6 +18,10 @@ SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
 memory_engine = MemoryEngine()
 memory_engine.initialize()
 initialize_memory_store()
+agent_runtime = AgentRuntime()
+agent_runtime.bootstrap_default_agents()
+mission_planner = MissionPlanner()
+mission_planner.initialize()
 
 
 @asynccontextmanager
@@ -86,7 +93,16 @@ async def system_status():
 
 @app.get("/core/status")
 async def core_status():
-    return await system_status()
+    payload = await system_status()
+    payload["components"]["agent_runtime"] = {
+        "status": "ready",
+        "count": len(agent_runtime.list_agents()),
+    }
+    payload["components"]["mission_planner"] = {
+        "status": "ready",
+        "count": len(mission_planner.list_missions()),
+    }
+    return payload
 
 
 @app.get("/core/memory/status")
@@ -105,8 +121,76 @@ async def core_memory_status():
 @app.get("/core/agents")
 async def core_agents(x_salus_passphrase: str | None = Header(default=None)):
     verify_passphrase(x_salus_passphrase)
-    agents = discover_agents()
+    agents = agent_runtime.list_agents()
     return {"status": "ok", "agents": agents}
+
+
+@app.post("/core/agents/{name}/run")
+async def run_core_agent(
+    name: str,
+    request: Request,
+    x_salus_passphrase: str | None = Header(default=None),
+):
+    verify_passphrase(x_salus_passphrase)
+    data = await request.json()
+    result = agent_runtime.run_agent(
+        name,
+        data.get("input", {}) if isinstance(data, dict) else {},
+        important=bool(data.get("important", False)) if isinstance(data, dict) else False,
+    )
+    return result
+
+
+@app.get("/core/missions")
+async def core_missions(x_salus_passphrase: str | None = Header(default=None)):
+    verify_passphrase(x_salus_passphrase)
+    missions = mission_planner.list_missions()
+    return {"status": "ok", "missions": missions}
+
+
+@app.post("/core/missions")
+async def create_core_mission(
+    request: Request,
+    x_salus_passphrase: str | None = Header(default=None),
+):
+    verify_passphrase(x_salus_passphrase)
+    data = await request.json()
+    mission = mission_planner.create_mission(
+        title=str(data.get("title", "")).strip(),
+        description=str(data.get("description", "")).strip(),
+        priority=str(data.get("priority", "medium")).strip(),
+    )
+    return {"status": "created", "mission": mission}
+
+
+@app.post("/core/missions/{mission_id}/complete")
+async def complete_core_mission(
+    mission_id: int,
+    x_salus_passphrase: str | None = Header(default=None),
+):
+    verify_passphrase(x_salus_passphrase)
+    mission = mission_planner.complete_mission(mission_id)
+    if not mission:
+        return {"status": "not_found", "id": mission_id}
+    return {"status": "completed", "mission": mission}
+
+
+@app.get("/investor-intelligence/status")
+async def investor_intelligence_status():
+    return investor_intelligence.status()
+
+
+@app.post("/investor-intelligence/analyze")
+async def investor_intelligence_analyze(request: Request):
+    payload = await request.json()
+    if not isinstance(payload, dict):
+        payload = {}
+    return investor_intelligence.analyze(payload)
+
+
+@app.get("/investor-intelligence/framework")
+async def investor_intelligence_framework():
+    return investor_intelligence.framework()
 
 
 @app.get("/core/plugins/status")
