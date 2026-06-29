@@ -34,11 +34,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
 
     if args.command == "create-directorate":
-        result = create_directorate(
-            name=args.name,
-            project_root=Path(args.project_root).resolve() if args.project_root else None,
-            overwrite=args.overwrite,
-        )
+        try:
+            result = create_directorate(
+                name=args.name,
+                project_root=Path(args.project_root).resolve() if args.project_root else None,
+                overwrite=args.overwrite,
+            )
+        except ValueError as exc:
+            print(str(exc))
+            return 1
+
         print(f"Created directorate '{result['directorate']}' ({result['slug']})")
         if result["created"]:
             print("Created files:")

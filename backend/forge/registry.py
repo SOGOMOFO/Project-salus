@@ -29,6 +29,11 @@ def build_directorate_components(slug: str, title: str, class_name: str) -> List
             relative_path=f"backend/agents/{slug}_agent.py",
         ),
         DirectorateComponent(
+            name="directorate",
+            template=forge_templates.DIRECTORATE_TEMPLATE,
+            relative_path=f"backend/directorates/{slug}.py",
+        ),
+        DirectorateComponent(
             name="docs",
             template=forge_templates.DOC_TEMPLATE,
             relative_path=f"docs/{slug}.md",

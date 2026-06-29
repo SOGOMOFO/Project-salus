@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from backend.forge.registry import build_directorate_components
-from backend.forge.validator import is_valid_python_file
+from backend.forge.validator import is_duplicate_directorate, is_valid_python_file
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -27,18 +27,31 @@ def create_directorate(name: str, project_root: Optional[Path | str] = None, ove
     title = titleize(name)
     class_name = classify_name(slug)
 
+    if is_duplicate_directorate(root, slug, title):
+        raise ValueError(f"Directorate '{title}' already exists")
+
     components = build_directorate_components(slug=slug, title=title, class_name=class_name)
 
     created: List[str] = []
     skipped: List[str] = []
     validated: List[str] = []
 
-    package_dirs = [root / "backend" / "api", root / "backend" / "services", root / "backend" / "agents"]
+    package_dirs = [
+        root / "backend" / "api",
+        root / "backend" / "services",
+        root / "backend" / "agents",
+        root / "backend" / "directorates",
+    ]
     for package_dir in package_dirs:
         package_dir.mkdir(parents=True, exist_ok=True)
         init_file = package_dir / "__init__.py"
         if not init_file.exists():
             init_file.write_text("\"\"\"Generated package for Salus Forge.\"\"\"\n", encoding="utf-8")
+
+    registry_path = root / "backend" / "directorates" / "registry.py"
+    registry_exists = registry_path.exists()
+    if not registry_exists:
+        registry_path.write_text("from backend.directorates.base import Directorate\n\nDIRECTORATES = {}\n", encoding="utf-8")
 
     for component in components:
         destination = root / component.relative_path
@@ -60,6 +73,13 @@ def create_directorate(name: str, project_root: Optional[Path | str] = None, ove
 
         if destination.suffix == ".py" and is_valid_python_file(destination):
             validated.append(str(destination.relative_to(root)))
+
+    registry_path.write_text(
+        f"from backend.directorates.base import Directorate\nfrom backend.directorates.{slug} import {class_name}Directorate\n\nDIRECTORATES = {{\n    \"{title}\": {class_name}Directorate,\n}}\n",
+        encoding="utf-8",
+    )
+    if registry_path.exists():
+        validated.append(str(registry_path.relative_to(root)))
 
     return {
         "directorate": title,

@@ -12,11 +12,12 @@ def status():
     }}
 '''
 
-SERVICE_TEMPLATE = '''def get_status():
-    return {{
-        "status": "operational",
-        "message": "{title} service online",
-    }}
+SERVICE_TEMPLATE = '''class {class_name}Service:
+    def get_status(self):
+        return {{
+            "status": "operational",
+            "message": "{title} service online",
+        }}
 '''
 
 AGENT_TEMPLATE = '''from dataclasses import dataclass
@@ -30,6 +31,37 @@ class {class_name}Agent:
 
 
 AGENT = {class_name}Agent()
+'''
+
+DIRECTORATE_TEMPLATE = '''from backend.directorates.base import Directorate
+
+
+class {class_name}Directorate(Directorate):
+    NAME = "{title} Directorate"
+
+    def status(self):
+        return "Operational"
+
+    def objectives(self):
+        return [
+            "Advance mission readiness",
+            "Improve resilience",
+            "Support automation",
+        ]
+
+    def report(self):
+        return {{
+            "mission": "Support {title} operations.",
+            "status": "Operational",
+        }}
+'''
+
+REGISTRY_TEMPLATE = '''from backend.directorates.base import Directorate
+from backend.directorates.{slug} import {class_name}Directorate
+
+DIRECTORATES = {{
+    "{title}": {class_name}Directorate,
+}}
 '''
 
 DOC_TEMPLATE = '''# {title} Directorate
