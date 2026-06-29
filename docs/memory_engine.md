@@ -1,6 +1,6 @@
 # Persistent Memory Engine v1
 
-Project Salus includes a lightweight SQLite-backed persistent memory engine for storing mission, agent, project, user, and legacy context.
+Project Salus now includes a lightweight SQLite-backed memory engine for mission control context.
 
 ## Supported memory types
 - user
@@ -8,6 +8,16 @@ Project Salus includes a lightweight SQLite-backed persistent memory engine for 
 - agent
 - mission
 - legacy
+
+## Stored fields
+- id
+- memory_type
+- title
+- content
+- tags
+- source
+- created_at
+- updated_at
 
 ## API surface
 - GET /memory
@@ -18,10 +28,10 @@ Project Salus includes a lightweight SQLite-backed persistent memory engine for 
 ## Example payload
 ```json
 {
-  "content": "Mission briefing",
   "memory_type": "mission",
-  "metadata": {
-    "owner": "salus"
-  }
+  "title": "Mission briefing",
+  "content": "Project Salus launch plan",
+  "tags": ["launch", "mission"],
+  "source": "mission-control"
 }
 ```

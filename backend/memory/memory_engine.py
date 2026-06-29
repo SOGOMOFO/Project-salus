@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
-SUPPORTED_MEMORY_TYPES = {"user", "project", "agent", "mission", "legacy"}
+from backend.memory.models import SUPPORTED_MEMORY_TYPES
 
 
 def get_db_path() -> Path:
@@ -29,9 +29,11 @@ def initialize_memory_store() -> None:
         """
         CREATE TABLE IF NOT EXISTS memories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content TEXT NOT NULL,
             memory_type TEXT NOT NULL,
-            metadata TEXT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags TEXT,
+            source TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -47,44 +49,59 @@ def _normalize_memory_type(memory_type: Optional[str]) -> str:
     return "legacy"
 
 
-def _serialize_metadata(metadata: Optional[dict[str, Any]]) -> str:
-    if not metadata:
-        return "{}"
-    return json.dumps(metadata)
+def _serialize_tags(tags: Optional[list[str]]) -> str:
+    if not tags:
+        return "[]"
+    return json.dumps(tags)
 
 
-def _deserialize_metadata(payload: Optional[str]) -> dict[str, Any]:
+def _deserialize_tags(payload: Optional[str]) -> list[str]:
     if not payload:
-        return {}
+        return []
     try:
-        return json.loads(payload)
+        loaded = json.loads(payload)
+        return loaded if isinstance(loaded, list) else []
     except (TypeError, json.JSONDecodeError):
-        return {}
+        return []
 
 
-def add_memory(content: str, memory_type: str = "legacy", metadata: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def add_memory(
+    *,
+    memory_type: str = "legacy",
+    title: str = "",
+    content: str = "",
+    tags: Optional[list[str]] = None,
+    source: Optional[str] = None,
+) -> dict[str, Any]:
     if not content or not str(content).strip():
         raise ValueError("content is required")
 
     normalized_type = _normalize_memory_type(memory_type)
-    payload = metadata or {}
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO memories (content, memory_type, metadata, created_at, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO memories (memory_type, title, content, tags, source, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
-        (str(content).strip(), normalized_type, _serialize_metadata(payload)),
+        (
+            normalized_type,
+            str(title or "").strip(),
+            str(content).strip(),
+            _serialize_tags(tags),
+            str(source or "").strip() or None,
+        ),
     )
     conn.commit()
     memory_id = cur.lastrowid
     conn.close()
     return {
         "id": memory_id,
-        "content": str(content).strip(),
         "memory_type": normalized_type,
-        "metadata": payload,
+        "title": str(title or "").strip(),
+        "content": str(content).strip(),
+        "tags": tags or [],
+        "source": str(source or "").strip() or None,
     }
 
 
@@ -93,22 +110,25 @@ def list_memories(memory_type: Optional[str] = None) -> list[dict[str, Any]]:
     cur = conn.cursor()
     if memory_type:
         cur.execute(
-            "SELECT id, content, memory_type, metadata, created_at, updated_at FROM memories WHERE memory_type = ? ORDER BY id DESC",
+            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE memory_type = ? ORDER BY id DESC",
             (_normalize_memory_type(memory_type),),
         )
     else:
-        cur.execute("SELECT id, content, memory_type, metadata, created_at, updated_at FROM memories ORDER BY id DESC")
-
+        cur.execute(
+            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories ORDER BY id DESC"
+        )
     rows = cur.fetchall()
     conn.close()
     return [
         {
             "id": row[0],
-            "content": row[1],
-            "memory_type": row[2],
-            "metadata": row[3] and eval(row[3], {}, {}),
-            "created_at": row[4],
-            "updated_at": row[5],
+            "memory_type": row[1],
+            "title": row[2],
+            "content": row[3],
+            "tags": _deserialize_tags(row[4]),
+            "source": row[5],
+            "created_at": row[6],
+            "updated_at": row[7],
         }
         for row in rows
     ]
@@ -123,25 +143,26 @@ def search_memories(query: str, memory_type: Optional[str] = None) -> list[dict[
     search_term = f"%{str(query).strip()}%"
     if memory_type:
         cur.execute(
-            "SELECT id, content, memory_type, metadata, created_at, updated_at FROM memories WHERE memory_type = ? AND content LIKE ? ORDER BY id DESC",
-            (_normalize_memory_type(memory_type), search_term),
+            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE memory_type = ? AND (title LIKE ? OR content LIKE ? OR source LIKE ?) ORDER BY id DESC",
+            (_normalize_memory_type(memory_type), search_term, search_term, search_term),
         )
     else:
         cur.execute(
-            "SELECT id, content, memory_type, metadata, created_at, updated_at FROM memories WHERE content LIKE ? ORDER BY id DESC",
-            (search_term,),
+            "SELECT id, memory_type, title, content, tags, source, created_at, updated_at FROM memories WHERE title LIKE ? OR content LIKE ? OR source LIKE ? ORDER BY id DESC",
+            (search_term, search_term, search_term),
         )
-
     rows = cur.fetchall()
     conn.close()
     return [
         {
             "id": row[0],
-            "content": row[1],
-            "memory_type": row[2],
-            "metadata": row[3] and eval(row[3], {}, {}),
-            "created_at": row[4],
-            "updated_at": row[5],
+            "memory_type": row[1],
+            "title": row[2],
+            "content": row[3],
+            "tags": _deserialize_tags(row[4]),
+            "source": row[5],
+            "created_at": row[6],
+            "updated_at": row[7],
         }
         for row in rows
     ]

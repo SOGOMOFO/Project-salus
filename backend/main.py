@@ -6,15 +6,10 @@ from pathlib import Path
 import os
 
 from backend.database import init_db, seed_data, get_connection
+from backend.api.memory import router as memory_router
 from backend.memory.registry import discover_agents
 from backend.memory.service import MemoryEngine
-from backend.memory.memory_engine import (
-    add_memory,
-    delete_memory,
-    initialize_memory_store,
-    list_memories,
-    search_memories,
-)
+from backend.memory.memory_engine import initialize_memory_store
 
 SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
 memory_engine = MemoryEngine()
@@ -41,6 +36,7 @@ TEMPLATE_PATH = BASE_DIR / "frontend" / "templates" / "index.html"
 STATIC_DIR = BASE_DIR / "frontend" / "static"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.include_router(memory_router)
 
 
 def verify_passphrase(x_salus_passphrase: str | None):
@@ -68,40 +64,6 @@ async def plugin_health():
             "module": agent["module"],
         })
     return {"plugins": plugins, "count": len(plugins)}
-
-
-@app.get("/memory")
-async def memory_list(x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    return {"status": "ok", "memories": list_memories()}
-
-
-@app.post("/memory")
-async def memory_create(request: Request | dict, x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    if isinstance(request, Request):
-        data = await request.json()
-    else:
-        data = request or {}
-    memory = add_memory(
-        content=data.get("content", ""),
-        memory_type=data.get("memory_type", "legacy"),
-        metadata=data.get("metadata") or {},
-    )
-    return {"status": "created", "memory": memory}
-
-
-@app.get("/memory/search")
-async def memory_search(query: str, x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    return {"status": "ok", "memories": search_memories(query)}
-
-
-@app.delete("/memory/{memory_id}")
-async def memory_delete(memory_id: int, x_salus_passphrase: str | None = Header(default=None)):
-    verify_passphrase(x_salus_passphrase)
-    deleted = delete_memory(memory_id)
-    return {"status": "deleted" if deleted else "not_found", "id": memory_id}
 
 
 @app.get("/system/status")
