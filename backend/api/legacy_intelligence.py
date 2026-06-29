@@ -1,12 +1,12 @@
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/medical_intelligence", tags=["Medical Intelligence"])
+router = APIRouter(prefix="/legacy_intelligence", tags=["Legacy Intelligence"])
 
 
 @router.get("/status")
 def status():
     return {
-        "directorate": "Medical Intelligence",
+        "directorate": "Legacy Intelligence",
         "status": "operational",
         "version": "0.1.0",
     }

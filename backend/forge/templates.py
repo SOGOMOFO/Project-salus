@@ -2,27 +2,34 @@ API_TEMPLATE = '''from fastapi import APIRouter
 
 router = APIRouter(prefix="/{slug}", tags=["{title}"])
 
+
 @router.get("/status")
 def status():
     return {{
         "directorate": "{title}",
         "status": "operational",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }}
 '''
 
 SERVICE_TEMPLATE = '''def get_status():
     return {{
         "status": "operational",
-        "message": "{title} service online"
+        "message": "{title} service online",
     }}
 '''
 
-AGENT_TEMPLATE = '''AGENT = {{
-    "name": "{title} Agent",
-    "mission": "Support the {title} Directorate.",
-    "status": "active"
-}}
+AGENT_TEMPLATE = '''from dataclasses import dataclass
+
+
+@dataclass
+class {class_name}Agent:
+    name: str = "{title} Agent"
+    mission: str = "Support the {title} Directorate."
+    status: str = "active"
+
+
+AGENT = {class_name}Agent()
 '''
 
 DOC_TEMPLATE = '''# {title} Directorate

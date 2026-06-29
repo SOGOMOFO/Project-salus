@@ -1,5 +1,5 @@
 def get_status():
     return {
         "status": "operational",
-        "message": "Medical Intelligence service online",
+        "message": "Legacy Intelligence service online",
     }

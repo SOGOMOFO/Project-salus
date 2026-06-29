@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,10 +9,19 @@ from backend.database import init_db, seed_data, get_connection
 
 SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    seed_data()
+    yield
+
+
 app = FastAPI(
     title="Project Salus",
     version="0.4.0",
-    description="Mission Control Backend with Security Layer"
+    description="Mission Control Backend with Security Layer",
+    lifespan=lifespan,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,12 +34,6 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def verify_passphrase(x_salus_passphrase: str | None):
     if x_salus_passphrase != SALUS_PASSPHRASE:
         raise HTTPException(status_code=401, detail="Unauthorized access denied")
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
-    seed_data()
 
 
 @app.get("/", response_class=HTMLResponse)
