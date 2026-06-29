@@ -8,7 +8,12 @@ import os
 from backend.database import init_db, seed_data, get_connection
 from backend.core.agent_runtime import AgentRuntime
 from backend.core.mission_planner import MissionPlanner
-from backend.directorates.investor_intelligence import DIRECTORATE as investor_intelligence
+from backend.directorates.investor_intelligence.api import (
+    router as investor_intelligence_router,
+    investor_intelligence_status,
+    investor_intelligence_framework,
+    investor_intelligence_analyze,
+)
 from backend.api.memory import router as memory_router
 from backend.memory.registry import discover_agents
 from backend.memory.service import MemoryEngine
@@ -44,6 +49,7 @@ STATIC_DIR = BASE_DIR / "frontend" / "static"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(memory_router)
+app.include_router(investor_intelligence_router)
 
 
 def verify_passphrase(x_salus_passphrase: str | None):
@@ -173,24 +179,6 @@ async def complete_core_mission(
     if not mission:
         return {"status": "not_found", "id": mission_id}
     return {"status": "completed", "mission": mission}
-
-
-@app.get("/investor-intelligence/status")
-async def investor_intelligence_status():
-    return investor_intelligence.status()
-
-
-@app.post("/investor-intelligence/analyze")
-async def investor_intelligence_analyze(request: Request):
-    payload = await request.json()
-    if not isinstance(payload, dict):
-        payload = {}
-    return investor_intelligence.analyze(payload)
-
-
-@app.get("/investor-intelligence/framework")
-async def investor_intelligence_framework():
-    return investor_intelligence.framework()
 
 
 @app.get("/core/plugins/status")

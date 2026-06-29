@@ -1,8 +1,24 @@
 # Investor Intelligence Directorate v1
 
-Project Salus includes a permanent Economics and Finance directorate focused on educational investment decision support.
+Investor Intelligence Directorate (IID) is the permanent Economics and Finance decision-support capability inside Project Salus.
 
-## Agent panel
+## Mission
+Deliver educational, evidence-driven investment analysis that improves decision quality without presenting certainty.
+
+## Doctrine
+- Evidence first, narrative second.
+- Protect downside before pursuing upside.
+- Confidence thresholds enforce discipline.
+- Recommendations are decision support, not personalized financial advice.
+
+## Pipeline
+1. Ingest thesis, bear/bull cases, and assumptions.
+2. Score nine core factors on a 0-100 scale.
+3. Run expert panel interpretation.
+4. Apply confidence and risk/reward policy.
+5. Emit structured recommendation with disclaimer.
+
+## Expert Panel
 - Value Analyst
 - Growth Analyst
 - Macro Strategist
@@ -10,52 +26,84 @@ Project Salus includes a permanent Economics and Finance directorate focused on 
 - Risk Officer
 - Portfolio Manager
 
-## Scoring model
-The framework uses the following normalized factors (0-100):
+## Scoring Model
+IID scores these factors on 0-100:
 - valuation
 - financial_strength
 - growth
-- moat
+- competitive_moat
 - management
-- macro
-- technical
+- macro_environment
+- technical_trend
 - risk
 - conviction
 
-## Recommendation statuses
-- Buy
-- Hold
-- Monitor
-- Avoid
+## Confidence Rules
+Evidence quality grades:
+- A+
+- A
+- B
+- C
+- D
 
-## Core decision rule
-When confidence is below 80%, recommendation defaults to `Monitor` unless risk/reward is exceptional.
+Confidence bands:
+- 99
+- 95
+- 90
+- 80
+- 70
+- 60
+- below_60
 
-## API endpoints
+Rule:
+- If confidence is below 80, default recommendation is `Monitor` unless `risk_reward` is exceptional.
+
+## Risk Policy
+- Recommendation outputs: `Buy`, `Hold`, `Monitor`, `Avoid`.
+- Elevated risk or weak evidence should avoid aggressive recommendations.
+- No brokerage execution or account connectivity is enabled in v1.
+
+## AI Investment Categories
+- infrastructure
+- foundation_models
+- enterprise_ai_software
+- robotics
+- cybersecurity
+- healthcare_ai
+- defense_ai
+- industrial_automation
+- edge_ai
+- ai_enabled_services
+
+## Portfolio Health Placeholder
+IID includes a placeholder model for:
+- cash_allocation
+- equity_allocation
+- crypto_allocation
+- bonds
+- precious_metals
+- private_investments
+- real_estate
+- business_ownership
+- emergency_liquidity
+- debt
+- tax_exposure
+
+## Scenario Placeholders
+- recession
+- inflation_shock
+- market_crash
+- interest_rate_change
+- geopolitical_conflict
+- ai_adoption_acceleration
+
+## API Endpoints
 - `GET /investor-intelligence/status`
-- `POST /investor-intelligence/analyze`
 - `GET /investor-intelligence/framework`
+- `POST /investor-intelligence/analyze`
 
-## Safety constraints
-- No real brokerage account connectivity in v1.
-- Output language remains educational and decision-support focused.
-- Results do not claim certainty or guaranteed outcomes.
+## Future: Investment Digital Twin
+Planned future capability is an Investment Digital Twin that simulates portfolio resilience, scenario transitions, and adaptive thesis updates under changing macro and market regimes.
 
-## Example analyze payload
-```json
-{
-  "ticker": "MSFT",
-  "confidence": 76,
-  "scores": {
-    "valuation": 68,
-    "financial_strength": 85,
-    "growth": 82,
-    "moat": 88,
-    "management": 83,
-    "macro": 64,
-    "technical": 71,
-    "risk": 52,
-    "conviction": 79
-  }
-}
-```
+## Disclaimer
+"This is decision-support analysis, not personalized financial advice."

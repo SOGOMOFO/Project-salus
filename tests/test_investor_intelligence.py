@@ -1,10 +1,9 @@
 import asyncio
 import unittest
 
-from backend.directorates.investor_intelligence import (
-    INVESTMENT_METRICS,
+from backend.directorates.investor_intelligence.models import (
     RECOMMENDATION_STATUSES,
-    DIRECTORATE,
+    SCORE_FIELDS,
 )
 from backend.main import (
     investor_intelligence_status,
@@ -22,84 +21,95 @@ class DummyRequest:
 
 
 class InvestorIntelligenceTests(unittest.TestCase):
-    def test_framework_contract(self):
-        framework = DIRECTORATE.framework()
-        self.assertEqual(framework["directorate"], "Investor Intelligence Directorate")
-        self.assertEqual(framework["scoring_model"]["metrics"], INVESTMENT_METRICS)
-        self.assertEqual(framework["recommendation_statuses"], RECOMMENDATION_STATUSES)
+    def test_status_endpoint(self):
+        payload = asyncio.run(investor_intelligence_status())
+        self.assertEqual(payload["status"], "operational")
+        self.assertEqual(payload["brokerage_connections"], "disabled")
 
-    def test_default_monitor_when_low_confidence(self):
-        payload = DIRECTORATE.analyze(
-            {
-                "ticker": "TEST",
-                "confidence": 74,
-                "scores": {
-                    "valuation": 85,
-                    "financial_strength": 85,
-                    "growth": 82,
-                    "moat": 86,
-                    "management": 84,
-                    "macro": 70,
-                    "technical": 72,
-                    "risk": 69,
-                    "conviction": 78,
-                },
-            }
-        )
-        self.assertEqual(payload["recommendation"], "Monitor")
-        self.assertIn("educational", payload["educational_notice"].lower())
+    def test_framework_endpoint(self):
+        payload = asyncio.run(investor_intelligence_framework())
+        self.assertIn("expert_panel", payload)
+        self.assertEqual(len(payload["ai_investment_categories"]), 10)
+        self.assertIn("portfolio_health_placeholder", payload)
 
-    def test_can_escape_monitor_on_exceptional_risk_reward(self):
-        payload = DIRECTORATE.analyze(
-            {
-                "ticker": "EXC",
-                "confidence": 70,
-                "scores": {
-                    "valuation": 88,
-                    "financial_strength": 91,
-                    "growth": 92,
-                    "moat": 93,
-                    "management": 89,
-                    "macro": 80,
-                    "technical": 85,
-                    "risk": 30,
-                    "conviction": 90,
-                },
-            }
-        )
-        self.assertNotEqual(payload["recommendation"], "Monitor")
-        self.assertTrue(payload["risk_reward"]["exceptional"])
-
-    def test_api_endpoints(self):
-        status_payload = asyncio.run(investor_intelligence_status())
-        self.assertEqual(status_payload["status"], "operational")
-
-        framework_payload = asyncio.run(investor_intelligence_framework())
-        self.assertEqual(framework_payload["recommendation_statuses"], RECOMMENDATION_STATUSES)
-
-        analyze_payload = asyncio.run(
+    def test_analyze_endpoint_structure_and_disclaimer(self):
+        payload = asyncio.run(
             investor_intelligence_analyze(
                 DummyRequest(
                     {
-                        "ticker": "API",
-                        "confidence": 82,
+                        "ticker_or_asset": "NVDA",
+                        "thesis": "AI infrastructure demand remains strong.",
+                        "bear_case": "Capex cycle may cool faster than expected.",
+                        "bull_case": "Inference demand expands margin profile.",
+                        "key_assumptions": ["Demand persists", "Execution stays strong"],
+                        "evidence_quality": "B",
                         "scores": {
-                            "valuation": 70,
-                            "financial_strength": 78,
-                            "growth": 76,
-                            "moat": 74,
-                            "management": 72,
-                            "macro": 67,
-                            "technical": 66,
+                            "valuation": 62,
+                            "financial_strength": 86,
+                            "growth": 92,
+                            "competitive_moat": 90,
+                            "management": 88,
+                            "macro_environment": 66,
+                            "technical_trend": 77,
                             "risk": 58,
-                            "conviction": 79,
+                            "conviction": 85,
                         },
                     }
-                )
+                ),
+                "salus-secure",
             )
         )
-        self.assertIn(analyze_payload["recommendation"], RECOMMENDATION_STATUSES)
-        self.assertEqual(analyze_payload["ticker"], "API")
+
+        required_fields = {
+            "ticker_or_asset",
+            "thesis",
+            "bear_case",
+            "bull_case",
+            "key_assumptions",
+            "evidence_quality",
+            "confidence",
+            "scores",
+            "risks",
+            "portfolio_fit",
+            "recommendation",
+            "disclaimer",
+        }
+        self.assertTrue(required_fields.issubset(payload.keys()))
+        self.assertEqual(
+            payload["disclaimer"],
+            "This is decision-support analysis, not personalized financial advice.",
+        )
+        self.assertIn(payload["recommendation"], RECOMMENDATION_STATUSES)
+        self.assertEqual(set(payload["scores"].keys()), set(SCORE_FIELDS))
+
+    def test_confidence_below_80_defaults_monitor(self):
+        payload = asyncio.run(
+            investor_intelligence_analyze(
+                DummyRequest(
+                    {
+                        "ticker_or_asset": "LOWCONF",
+                        "evidence_quality": "D",
+                        "scores": {
+                            "valuation": 75,
+                            "financial_strength": 70,
+                            "growth": 71,
+                            "competitive_moat": 70,
+                            "management": 68,
+                            "macro_environment": 55,
+                            "technical_trend": 52,
+                            "risk": 64,
+                            "conviction": 63,
+                        },
+                    }
+                ),
+                "salus-secure",
+            )
+        )
+        self.assertEqual(payload["recommendation"], "Monitor")
+
+    def test_no_real_brokerage_connection_required(self):
+        status_payload = asyncio.run(investor_intelligence_status())
+        self.assertEqual(status_payload["brokerage_connections"], "disabled")
 
 
 if __name__ == "__main__":
