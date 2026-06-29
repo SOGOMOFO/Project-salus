@@ -76,6 +76,41 @@ async function loadAgents() {
   }
 }
 
+// ── Core Status ──────────────────────────────────────────────────────
+async function loadCoreStatus() {
+  const el = document.getElementById('core-status');
+  try {
+    const res = await fetch('/core/status', { headers: SALUS_HEADERS });
+    const data = await res.json();
+    const components = data.components || {};
+    const plugins = Array.isArray(data.plugins) ? data.plugins : [];
+    el.innerHTML = `
+      <div class="core-status-grid">
+        <div class="core-status-item">
+          <div class="core-status-label">System</div>
+          <div class="core-status-value">${data.status || 'unknown'}</div>
+        </div>
+        <div class="core-status-item">
+          <div class="core-status-label">Memory</div>
+          <div class="core-status-value">${components.memory?.status || 'unknown'}</div>
+        </div>
+        <div class="core-status-item">
+          <div class="core-status-label">Agents</div>
+          <div class="core-status-value">${components.agent_registry?.count || 0}</div>
+        </div>
+        <div class="core-status-item">
+          <div class="core-status-label">Plugins</div>
+          <div class="core-status-value">${plugins.length}</div>
+        </div>
+      </div>
+      <div class="core-status-footer">
+        ${plugins.slice(0, 3).map(plugin => `<span class="badge ${plugin.status === 'active' ? 'badge-green' : 'badge-yellow'}">${plugin.name}</span>`).join('')}
+      </div>`;
+  } catch {
+    el.innerHTML = '<span class="error">Failed to load core status.</span>';
+  }
+}
+
 // ── SITREPs ───────────────────────────────────────────────────────────
 async function loadSitreps() {
   const el = document.getElementById('sitreps');
@@ -145,4 +180,5 @@ async function createSitrep() {
 // ── Init ──────────────────────────────────────────────────────────────
 loadMissions();
 loadAgents();
+loadCoreStatus();
 loadSitreps();
