@@ -11,6 +11,7 @@ from backend.core.event_bus import EventBus
 from backend.core.health_monitor import HealthMonitor
 from backend.core.mission_planner import MissionPlanner
 from backend.core.commander_api import create_commander_router
+from backend.core.intelligence_api import router as intelligence_router
 from backend.core.status import build_system_status
 from backend.directorates.investor_intelligence.api import router as investor_intelligence_router
 from backend.api.memory import router as memory_router
@@ -59,6 +60,7 @@ app.include_router(investor_intelligence_router)
 app.include_router(plugins_router)
 app.include_router(forge_router)
 app.include_router(security_router)
+app.include_router(intelligence_router)
 
 
 def verify_passphrase(
@@ -150,6 +152,15 @@ investor_intelligence_framework = next(
 investor_intelligence_analyze = next(
     route.endpoint for route in investor_intelligence_router.routes if route.path == "/investor-intelligence/analyze" and "POST" in route.methods
 )
+intelligence_status = next(
+    route.endpoint for route in intelligence_router.routes if route.path == "/intelligence/status" and "GET" in route.methods
+)
+intelligence_evaluate = next(
+    route.endpoint for route in intelligence_router.routes if route.path == "/intelligence/evaluate" and "POST" in route.methods
+)
+intelligence_reconcile = next(
+    route.endpoint for route in intelligence_router.routes if route.path == "/intelligence/reconcile" and "POST" in route.methods
+)
 
 # Export endpoint callables for direct unit tests.
 __all__ = [
@@ -163,6 +174,9 @@ __all__ = [
     "investor_intelligence_status",
     "investor_intelligence_framework",
     "investor_intelligence_analyze",
+    "intelligence_status",
+    "intelligence_evaluate",
+    "intelligence_reconcile",
 ]
 
 
