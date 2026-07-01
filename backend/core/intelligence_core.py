@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from statistics import mean
 from typing import Any, Callable, Optional
 
+from backend.core.risk_engine import assess_risk, recommend_risk_response
+
 
 _CONFIDENCE_LEVELS = (99, 95, 90, 80, 70, 60)
 _RECOMMENDATIONS = {"Pursue", "Pause", "Delegate", "Discard", "Monitor"}
@@ -81,6 +83,7 @@ def score_evidence(evidence: Any) -> dict[str, Any]:
         signals.append(base_score)
 
     score = _normalize_score(mean(signals) if signals else base_score)
+
     if score >= 95:
         grade = "A+"
     elif score >= 88:
@@ -140,6 +143,35 @@ def generate_recommendation(
     }
 
 
+def generate_judgment(
+    *,
+    strategic_fit: float,
+    evidence_quality: float,
+    roi: float,
+    difficulty: float,
+    timeline: float,
+    risks: dict[str, Any],
+) -> dict[str, Any]:
+    risk_report = assess_risk(risks)
+
+    recommendation = generate_recommendation(
+        strategic_fit=strategic_fit,
+        evidence_quality=evidence_quality,
+        roi=roi,
+        difficulty=difficulty,
+        risk=risk_report["overall_score"],
+        opportunity_cost=_normalize_score(risks.get("opportunity_cost")),
+        timeline=timeline,
+    )
+
+    recommendation["risk"] = risk_report
+    recommendation["risk_response"] = recommend_risk_response(
+        risk_report["overall_score"]
+    )
+
+    return recommendation
+
+
 def reconcile_agent_outputs(outputs: list[dict[str, Any]]) -> dict[str, Any]:
     if not outputs:
         return {
@@ -153,12 +185,16 @@ def reconcile_agent_outputs(outputs: list[dict[str, Any]]) -> dict[str, Any]:
     counts: dict[str, int] = {}
     confidences: list[float] = []
     summary: list[dict[str, Any]] = []
+
     for row in outputs:
         recommendation = str(row.get("recommendation", "Monitor")).strip().title()
+
         if recommendation not in _RECOMMENDATIONS:
             recommendation = "Monitor"
+
         counts[recommendation] = counts.get(recommendation, 0) + 1
         confidences.append(_normalize_score(row.get("confidence", 60.0), default=60.0))
+
         summary.append(
             {
                 "agent": str(row.get("agent", "unknown")),
@@ -169,6 +205,7 @@ def reconcile_agent_outputs(outputs: list[dict[str, Any]]) -> dict[str, Any]:
 
     consensus = max(counts, key=counts.get)
     avg_confidence = _normalize_score(mean(confidences), default=60.0)
+
     return {
         "status": "ok",
         "consensus": consensus,
@@ -180,8 +217,12 @@ def reconcile_agent_outputs(outputs: list[dict[str, Any]]) -> dict[str, Any]:
 
 def create_decision_record(payload: dict[str, Any]) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
+
     return {
-        "decision_id": str(payload.get("decision_id") or f"decision-{int(datetime.now(timezone.utc).timestamp())}"),
+        "decision_id": str(
+            payload.get("decision_id")
+            or f"decision-{int(datetime.now(timezone.utc).timestamp())}"
+        ),
         "timestamp": now,
         "actor": str(payload.get("actor", "intelligence-core")),
         "role": str(payload.get("role", "agent")),
@@ -207,23 +248,48 @@ def evaluate_decision(
     audit_logger: Optional[Callable[[dict[str, Any]], None]] = None,
 ) -> dict[str, Any]:
     evidence = score_evidence(payload.get("evidence"))
-    recommendation = generate_recommendation(
+
+    risks = payload.get("risks")
+
+    if not isinstance(risks, dict):
+        risks = {
+            "mission": payload.get("mission_risk", payload.get("risk", 50)),
+            "financial": payload.get("financial_risk", 50),
+            "security": payload.get("security_risk", 50),
+            "legal": payload.get("legal_risk", 50),
+            "operational": payload.get("operational_risk", 50),
+            "reputation": payload.get("reputation_risk", 50),
+            "technical": payload.get("technical_risk", 50),
+            "schedule": payload.get("schedule_risk", 50),
+            "human": payload.get("human_risk", 50),
+            "opportunity_cost": payload.get("opportunity_cost", 50),
+        }
+
+    recommendation = generate_judgment(
         strategic_fit=_normalize_score(payload.get("strategic_fit")),
-        evidence_quality=_normalize_score(payload.get("evidence_quality", evidence["score"]), default=evidence["score"]),
+        evidence_quality=_normalize_score(
+            payload.get("evidence_quality", evidence["score"]),
+            default=evidence["score"],
+        ),
         roi=_normalize_score(payload.get("roi")),
         difficulty=_normalize_score(payload.get("difficulty")),
-        risk=_normalize_score(payload.get("risk")),
-        opportunity_cost=_normalize_score(payload.get("opportunity_cost")),
         timeline=_normalize_score(payload.get("timeline")),
+        risks=risks,
     )
 
     record_payload = dict(payload)
-    record_payload["evidence_quality"] = _normalize_score(record_payload.get("evidence_quality", evidence["score"]))
+    record_payload["evidence_quality"] = _normalize_score(
+        record_payload.get("evidence_quality", evidence["score"])
+    )
+    record_payload["risk"] = recommendation["risk"]["overall_score"]
     record_payload["recommendation"] = recommendation["recommendation"]
     record_payload["confidence"] = recommendation["confidence"]
+
     record = create_decision_record(record_payload)
     record["evidence"] = evidence
     record["overall"] = recommendation
+    record["risk"] = recommendation["risk"]
+    record["risk_response"] = recommendation["risk_response"]
 
     writer = memory_writer if callable(memory_writer) else _default_memory_writer
     try:
