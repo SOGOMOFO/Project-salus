@@ -317,3 +317,16 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
     )
+@app.post("/api/judgment")
+def create_judgment(payload: dict):
+    from backend.core.intelligence_core import generate_judgment
+    from backend.core.explainability_engine import explain_recommendation
+
+    judgment = generate_judgment(**payload)
+    explanation = explain_recommendation(judgment)
+
+    return {
+        "status": "ok",
+        "judgment": judgment,
+        "explanation": explanation,
+    }
