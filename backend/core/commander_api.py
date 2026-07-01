@@ -53,6 +53,7 @@ def create_commander_router(
                 "/core/agents/{name}/run",
                 "/core/missions",
                 "/core/missions/{mission_id}/complete",
+                "/core/missions/{mission_id}",
                 "/core/events",
                 "/core/health",
             ],
@@ -156,6 +157,47 @@ def create_commander_router(
         )
         event_bus.publish("mission.created", {"id": mission["id"], "priority": mission["priority"]})
         return {"status": "created", "mission": mission}
+
+
+    @router.patch("/core/missions/{mission_id}")
+    async def update_core_mission(
+        mission_id: int,
+        request: Request,
+        x_salus_passphrase: str | None = Header(default=None),
+        x_salus_token: str | None = Header(default=None),
+        x_salus_role: str | None = Header(default=None),
+    ):
+        _authorize(
+            x_salus_passphrase,
+            action="core.missions.update",
+            role=x_salus_role,
+            x_salus_token=x_salus_token,
+            allowed_roles={"commander", "family", "agent"},
+        )
+        data = await request.json()
+        if not isinstance(data, dict):
+            data = {}
+
+        mission = mission_planner.update_mission(
+            mission_id,
+            title=data.get("title"),
+            description=data.get("description"),
+            priority=data.get("priority"),
+            status=data.get("status"),
+        )
+
+        if not mission:
+            return {"status": "not_found", "id": mission_id}
+
+        event_bus.publish(
+            "mission.updated",
+            {
+                "id": mission_id,
+                "priority": mission["priority"],
+                "status": mission["status"],
+            },
+        )
+        return {"status": "updated", "mission": mission}
 
     @router.post("/core/missions/{mission_id}/complete")
     async def complete_core_mission(

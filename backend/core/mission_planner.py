@@ -136,11 +136,87 @@ class MissionPlanner:
             return None
         return _mission_row_to_dict(row)
 
+    def update_mission(
+        self,
+        mission_id: int,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        priority: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any] | None:
+        self.initialize()
+        conn = get_connection()
+        cur = conn.cursor()
+
+        row = cur.execute(
+            """
+            SELECT id, title, description, priority, status, created_at, completed_at
+            FROM core_missions
+            WHERE id = ?
+            """,
+            (int(mission_id),),
+        ).fetchone()
+
+        if not row:
+            conn.close()
+            return None
+
+        current = _mission_row_to_dict(row)
+
+        new_title = str(title).strip() if title is not None else current["title"]
+        new_description = (
+            str(description).strip() if description is not None else current["description"]
+        )
+        new_priority = _normalize_priority(priority) if priority is not None else current["priority"]
+        new_status = _normalize_status(status) if status is not None else current["status"]
+
+        completed_at_sql = "completed_at"
+        if new_status == "completed" and not current["completed_at"]:
+            completed_at_sql = "CURRENT_TIMESTAMP"
+        elif new_status != "completed":
+            completed_at_sql = "NULL"
+
+        cur.execute(
+            f"""
+            UPDATE core_missions
+            SET title = ?,
+                description = ?,
+                priority = ?,
+                status = ?,
+                completed_at = {completed_at_sql}
+            WHERE id = ?
+            """,
+            (new_title, new_description, new_priority, new_status, int(mission_id)),
+        )
+        conn.commit()
+
+        updated = cur.execute(
+            """
+            SELECT id, title, description, priority, status, created_at, completed_at
+            FROM core_missions
+            WHERE id = ?
+            """,
+            (int(mission_id),),
+        ).fetchone()
+        conn.close()
+
+        return _mission_row_to_dict(updated)
+
+
 
 def _normalize_priority(priority: str | None) -> str:
     normalized = str(priority or "medium").strip().lower()
     if normalized not in PRIORITY_ORDER:
         return "medium"
+    return normalized
+
+
+def _normalize_status(status: str | None) -> str:
+    normalized = str(status or "open").strip().lower()
+    allowed = {"open", "active", "blocked", "paused", "completed"}
+    if normalized not in allowed:
+        return "open"
     return normalized
 
 
