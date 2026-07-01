@@ -371,3 +371,46 @@ def api_get_sitrep(sitrep_id: int):
         "status": "ok",
         "sitrep": sitrep,
     }
+
+
+@app.post("/api/aar")
+def api_create_aar(payload: dict):
+    from backend.aar_service import create_aar
+
+    try:
+        aar = create_aar(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "status": "ok",
+        "aar": aar,
+    }
+
+
+@app.get("/api/aar")
+def api_list_aars(limit: int = 10):
+    from backend.aar_service import list_aars
+
+    aars = list_aars(limit=limit)
+
+    return {
+        "status": "ok",
+        "count": len(aars),
+        "aars": aars,
+    }
+
+
+@app.get("/api/aar/{aar_id}")
+def api_get_aar(aar_id: int):
+    from backend.aar_service import get_aar
+
+    aar = get_aar(aar_id)
+
+    if aar is None:
+        raise HTTPException(status_code=404, detail="AAR not found")
+
+    return {
+        "status": "ok",
+        "aar": aar,
+    }

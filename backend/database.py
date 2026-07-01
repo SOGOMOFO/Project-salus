@@ -53,6 +53,20 @@ def init_db():
     """)
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS aars (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mission TEXT NOT NULL,
+        what_happened TEXT,
+        what_worked TEXT,
+        what_failed TEXT,
+        lesson_learned TEXT,
+        next_action TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS memories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         memory_type TEXT NOT NULL,
