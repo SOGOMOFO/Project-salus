@@ -613,3 +613,114 @@ def api_dashboard_summary():
             "next_recommended_action": snapshot["next_recommended_action"],
         },
     }
+
+
+def _build_commander_snapshot():
+    from backend.sitrep_service import list_sitreps
+    from backend.aar_service import list_aars
+
+    latest_sitreps = list_sitreps(limit=1)
+    latest_aars = list_aars(limit=1)
+    missions = mission_planner.list_missions()
+
+    open_missions = [
+        mission for mission in missions
+        if mission.get("status") != "completed"
+    ]
+
+    blocked_missions = [
+        mission for mission in open_missions
+        if mission.get("status") == "blocked"
+    ]
+
+    high_priority_open = [
+        mission for mission in open_missions
+        if mission.get("priority") == "high"
+    ]
+
+    latest_sitrep = latest_sitreps[0] if latest_sitreps else None
+    latest_aar = latest_aars[0] if latest_aars else None
+
+    if blocked_missions:
+        next_action = "Resolve blocked mission before starting new work."
+    elif high_priority_open:
+        next_action = f"Execute high-priority mission: {high_priority_open[0]['title']}"
+    elif latest_sitrep:
+        next_action = latest_sitrep.get("action_1") or "Execute today's SITREP priority."
+    else:
+        next_action = "Create today's SITREP."
+
+    return {
+        "operating_status": "active",
+        "latest_sitrep": latest_sitrep,
+        "latest_aar": latest_aar,
+        "missions": missions,
+        "open_missions": open_missions,
+        "blocked_missions": blocked_missions,
+        "high_priority_open": high_priority_open,
+        "next_recommended_action": next_action,
+    }
+
+
+@app.get("/api/commander/brief")
+def api_commander_brief():
+    snapshot = _build_commander_snapshot()
+
+    latest_sitrep = snapshot["latest_sitrep"]
+    latest_aar = snapshot["latest_aar"]
+
+    brief_lines = [
+        "PROJECT SALUS COMMANDER BRIEF",
+        "",
+        "Operating Status: ACTIVE",
+        f"Open Missions: {len(snapshot['open_missions'])}",
+        f"Blocked Missions: {len(snapshot['blocked_missions'])}",
+        "",
+        "Latest SITREP:",
+        latest_sitrep.get("top_priority") if latest_sitrep else "No SITREP available.",
+        "",
+        "Latest AAR Lesson:",
+        latest_aar.get("lesson_learned") if latest_aar else "No AAR available.",
+        "",
+        "Next Recommended Action:",
+        snapshot["next_recommended_action"],
+    ]
+
+    return {
+        "status": "ok",
+        "brief": "\n".join(brief_lines),
+        "data": snapshot,
+    }
+
+
+@app.get("/api/commander/next-action")
+def api_commander_next_action():
+    snapshot = _build_commander_snapshot()
+
+    return {
+        "status": "ok",
+        "next_recommended_action": snapshot["next_recommended_action"],
+        "blocked_missions": snapshot["blocked_missions"],
+        "high_priority_open": snapshot["high_priority_open"],
+    }
+
+
+@app.get("/api/dashboard/summary")
+def api_dashboard_summary():
+    snapshot = _build_commander_snapshot()
+
+    return {
+        "status": "ok",
+        "dashboard": {
+            "operating_status": snapshot["operating_status"],
+            "counts": {
+                "total_missions": len(snapshot["missions"]),
+                "open_missions": len(snapshot["open_missions"]),
+                "blocked_missions": len(snapshot["blocked_missions"]),
+                "high_priority_open": len(snapshot["high_priority_open"]),
+                "has_sitrep": snapshot["latest_sitrep"] is not None,
+                "has_aar": snapshot["latest_aar"] is not None,
+            },
+            "next_recommended_action": snapshot["next_recommended_action"],
+        },
+    }
