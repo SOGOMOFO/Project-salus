@@ -2,23 +2,25 @@
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Virtual Environment
+# Virtual environments
 .venv/
+venv/
+env/
 
-# macOS
+# Local databases / runtime state
+salus.db
+backend/memory/memory.sqlite
+
+# OS / editor
 .DS_Store
-
-# IDE
 .vscode/
 .idea/
 
-# Logs
-*.log
-
-# Environment variables
+# Environment files
 .env
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
+.env.*
