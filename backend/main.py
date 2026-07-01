@@ -330,3 +330,44 @@ def create_judgment(payload: dict):
         "judgment": judgment,
         "explanation": explanation,
     }
+
+
+@app.post("/api/sitrep")
+def api_create_sitrep(payload: dict):
+    from backend.sitrep_service import create_sitrep
+
+    try:
+        sitrep = create_sitrep(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "status": "ok",
+        "sitrep": sitrep,
+    }
+
+
+@app.get("/api/sitrep")
+def api_list_sitreps(limit: int = 10):
+    from backend.sitrep_service import list_sitreps
+
+    return {
+        "status": "ok",
+        "count": len(list_sitreps(limit=limit)),
+        "sitreps": list_sitreps(limit=limit),
+    }
+
+
+@app.get("/api/sitrep/{sitrep_id}")
+def api_get_sitrep(sitrep_id: int):
+    from backend.sitrep_service import get_sitrep
+
+    sitrep = get_sitrep(sitrep_id)
+
+    if sitrep is None:
+        raise HTTPException(status_code=404, detail="SITREP not found")
+
+    return {
+        "status": "ok",
+        "sitrep": sitrep,
+    }
