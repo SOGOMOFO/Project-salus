@@ -679,3 +679,94 @@ def api_daily_history(limit: int = 10):
             },
         },
     }
+
+
+@app.get("/api/dashboard/missions")
+def api_dashboard_missions():
+    missions = mission_planner.list_missions()
+
+    open_missions = [
+        mission for mission in missions
+        if mission.get("status") != "completed"
+    ]
+
+    completed_missions = [
+        mission for mission in missions
+        if mission.get("status") == "completed"
+    ]
+
+    blocked_missions = [
+        mission for mission in open_missions
+        if mission.get("status") == "blocked"
+    ]
+
+    return {
+        "status": "ok",
+        "missions": {
+            "all": missions,
+            "open": open_missions,
+            "completed": completed_missions,
+            "blocked": blocked_missions,
+            "counts": {
+                "total": len(missions),
+                "open": len(open_missions),
+                "completed": len(completed_missions),
+                "blocked": len(blocked_missions),
+            },
+        },
+    }
+
+
+@app.get("/api/dashboard/daily")
+def api_dashboard_daily(limit: int = 5):
+    from backend.sitrep_service import list_sitreps
+    from backend.aar_service import list_aars
+
+    sitreps = list_sitreps(limit=limit)
+    aars = list_aars(limit=limit)
+
+    latest_sitrep = sitreps[0] if sitreps else None
+    latest_aar = aars[0] if aars else None
+
+    return {
+        "status": "ok",
+        "daily": {
+            "latest_sitrep": latest_sitrep,
+            "latest_aar": latest_aar,
+            "recent_sitreps": sitreps,
+            "recent_aars": aars,
+            "counts": {
+                "sitreps": len(sitreps),
+                "aars": len(aars),
+            },
+        },
+    }
+
+
+@app.get("/api/dashboard/health")
+def api_dashboard_health():
+    snapshot = _build_commander_snapshot()
+
+    has_sitrep = snapshot["latest_sitrep"] is not None
+    has_aar = snapshot["latest_aar"] is not None
+    blocked_count = len(snapshot["blocked_missions"])
+
+    if blocked_count > 0:
+        health_status = "attention_required"
+    elif not has_sitrep:
+        health_status = "needs_daily_start"
+    else:
+        health_status = "healthy"
+
+    return {
+        "status": "ok",
+        "health": {
+            "overall": health_status,
+            "operating_status": snapshot["operating_status"],
+            "has_sitrep": has_sitrep,
+            "has_aar": has_aar,
+            "blocked_missions": blocked_count,
+            "open_missions": len(snapshot["open_missions"]),
+            "next_recommended_action": snapshot["next_recommended_action"],
+        },
+    }
