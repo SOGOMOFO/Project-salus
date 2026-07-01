@@ -414,3 +414,45 @@ def api_get_aar(aar_id: int):
         "status": "ok",
         "aar": aar,
     }
+
+
+@app.get("/api/mvp/status")
+def api_mvp_status():
+    from backend.sitrep_service import list_sitreps
+    from backend.aar_service import list_aars
+
+    latest_sitreps = list_sitreps(limit=1)
+    latest_aars = list_aars(limit=1)
+    missions = mission_planner.list_missions()
+
+    open_missions = [
+        mission for mission in missions
+        if mission.get("status") != "completed"
+    ]
+
+    return {
+        "status": "ok",
+        "mvp": {
+            "heartbeat": "alive",
+            "loop": {
+                "plan": bool(latest_sitreps),
+                "execute": bool(missions),
+                "learn": bool(latest_aars),
+            },
+            "capabilities": {
+                "judgment_api": True,
+                "daily_sitrep": True,
+                "mission_tracker": True,
+                "aar_log": True,
+                "sqlite_persistence": True,
+            },
+            "counts": {
+                "sitreps": len(latest_sitreps),
+                "open_missions": len(open_missions),
+                "aars": len(latest_aars),
+            },
+            "latest_sitrep": latest_sitreps[0] if latest_sitreps else None,
+            "latest_aar": latest_aars[0] if latest_aars else None,
+            "open_missions": open_missions,
+        },
+    }
