@@ -456,3 +456,49 @@ def api_mvp_status():
             "open_missions": open_missions,
         },
     }
+
+
+@app.get("/api/commander/today")
+def api_commander_today():
+    from backend.sitrep_service import list_sitreps
+    from backend.aar_service import list_aars
+
+    latest_sitreps = list_sitreps(limit=1)
+    latest_aars = list_aars(limit=1)
+    missions = mission_planner.list_missions()
+
+    open_missions = [
+        mission for mission in missions
+        if mission.get("status") != "completed"
+    ]
+
+    blocked_missions = [
+        mission for mission in open_missions
+        if mission.get("status") == "blocked"
+    ]
+
+    high_priority_open = [
+        mission for mission in open_missions
+        if mission.get("priority") == "high"
+    ]
+
+    if blocked_missions:
+        next_recommended_action = "Resolve blocked mission before starting new work."
+    elif high_priority_open:
+        next_recommended_action = f"Execute high-priority mission: {high_priority_open[0]['title']}"
+    elif latest_sitreps:
+        next_recommended_action = latest_sitreps[0].get("action_1") or "Execute today's SITREP priority."
+    else:
+        next_recommended_action = "Create today's SITREP."
+
+    return {
+        "status": "ok",
+        "commander_today": {
+            "operating_status": "active",
+            "latest_sitrep": latest_sitreps[0] if latest_sitreps else None,
+            "latest_aar": latest_aars[0] if latest_aars else None,
+            "open_missions": open_missions,
+            "blocked_missions": blocked_missions,
+            "next_recommended_action": next_recommended_action,
+        },
+    }
