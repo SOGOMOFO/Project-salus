@@ -613,3 +613,69 @@ def api_dashboard_summary():
             "next_recommended_action": snapshot["next_recommended_action"],
         },
     }
+
+
+@app.post("/api/daily/start")
+def api_daily_start(payload: dict):
+    from backend.sitrep_service import create_sitrep
+
+    sitrep = create_sitrep(
+        {
+            "top_priority": payload.get("top_priority", "Define today's top priority."),
+            "blocker": payload.get("blocker", ""),
+            "action_1": payload.get("action_1", ""),
+            "action_2": payload.get("action_2", ""),
+            "action_3": payload.get("action_3", ""),
+        }
+    )
+
+    return {
+        "status": "started",
+        "message": "Daily operating cycle started.",
+        "sitrep": sitrep,
+        "next_recommended_action": sitrep.get("action_1") or "Execute today's top priority.",
+    }
+
+
+@app.post("/api/daily/closeout")
+def api_daily_closeout(payload: dict):
+    from backend.aar_service import create_aar
+
+    aar = create_aar(
+        {
+            "mission": payload.get("mission", "Daily Operations"),
+            "what_happened": payload.get("what_happened", ""),
+            "what_worked": payload.get("what_worked", ""),
+            "what_failed": payload.get("what_failed", ""),
+            "lesson_learned": payload.get("lesson_learned", ""),
+            "next_action": payload.get("next_action", ""),
+        }
+    )
+
+    return {
+        "status": "closed",
+        "message": "Daily operating cycle closed.",
+        "aar": aar,
+        "next_recommended_action": aar.get("next_action") or "Review today's lesson and plan tomorrow.",
+    }
+
+
+@app.get("/api/daily/history")
+def api_daily_history(limit: int = 10):
+    from backend.sitrep_service import list_sitreps
+    from backend.aar_service import list_aars
+
+    sitreps = list_sitreps(limit=limit)
+    aars = list_aars(limit=limit)
+
+    return {
+        "status": "ok",
+        "history": {
+            "sitreps": sitreps,
+            "aars": aars,
+            "counts": {
+                "sitreps": len(sitreps),
+                "aars": len(aars),
+            },
+        },
+    }
