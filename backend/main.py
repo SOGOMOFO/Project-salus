@@ -117,7 +117,6 @@ async def system_status():
         health_monitor=health_monitor,
     )
 
-
 @app.get("/status")
 async def mission_control_status():
     return await system_status()
