@@ -1988,3 +1988,239 @@ async def sprint07_daily_command_page() -> _Sprint07HTMLResponse:
     </html>
     """
     return _Sprint07HTMLResponse(content=html)
+
+
+
+# --- Sprint 08 Schoolhouse Learning Coach Module ---
+_schoolhouse_courses = []
+_schoolhouse_study_sessions = []
+_schoolhouse_wrong_answer_reviews = []
+_schoolhouse_writing_tasks = []
+
+
+def _schoolhouse_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _schoolhouse_find_course(course_id: str):
+    for course in _schoolhouse_courses:
+        if course.get("id") == course_id:
+            return course
+    return None
+
+
+@app.get("/api/schoolhouse/status")
+async def schoolhouse_status() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "module": "schoolhouse_learning_coach",
+        "mission": "Help Kyle learn school work and durable skills without becoming dependent on AI.",
+        "current_focus": [
+            "WGU cybersecurity coursework",
+            "OA preparation",
+            "PA writing tasks",
+            "Cybersecurity/GRC career alignment",
+        ],
+        "capabilities": [
+            "course_tracker",
+            "study_session_planner",
+            "daily_school_brief",
+            "quiz_mode",
+            "wrong_answer_review",
+            "writing_task_support",
+            "rubric_breakdown",
+            "exam_readiness",
+        ],
+        "courses_count": len(_schoolhouse_courses),
+        "study_sessions_count": len(_schoolhouse_study_sessions),
+        "teaching_rule": "Teach Kyle to understand, remember, apply, and explain the material himself.",
+    }
+
+
+@app.post("/api/schoolhouse/course")
+async def schoolhouse_create_course(payload: Dict[str, Any]) -> Dict[str, Any]:
+    course = {
+        "id": str(payload.get("id") or uuid4()),
+        "name": payload.get("name", "Untitled Course"),
+        "code": payload.get("code", ""),
+        "school": payload.get("school", "WGU"),
+        "status": payload.get("status", "active"),
+        "priority": payload.get("priority", "medium"),
+        "competencies": payload.get("competencies", []),
+        "current_task": payload.get("current_task", ""),
+        "next_action": payload.get("next_action", ""),
+        "created_at": _schoolhouse_now(),
+        "updated_at": _schoolhouse_now(),
+    }
+
+    _schoolhouse_courses.append(course)
+
+    return {
+        "status": "ok",
+        "course": course,
+    }
+
+
+@app.get("/api/schoolhouse/courses")
+async def schoolhouse_list_courses() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "count": len(_schoolhouse_courses),
+        "courses": _schoolhouse_courses,
+    }
+
+
+@app.post("/api/schoolhouse/study-session")
+async def schoolhouse_study_session(payload: Dict[str, Any]) -> Dict[str, Any]:
+    confidence_before = int(payload.get("confidence_before", 0) or 0)
+    confidence_after = int(payload.get("confidence_after", confidence_before) or confidence_before)
+
+    session = {
+        "id": str(payload.get("id") or uuid4()),
+        "course": payload.get("course", ""),
+        "objective": payload.get("objective", ""),
+        "duration_minutes": int(payload.get("duration_minutes", 0) or 0),
+        "material": payload.get("material", ""),
+        "notes": payload.get("notes", ""),
+        "confidence_before": confidence_before,
+        "confidence_after": confidence_after,
+        "blockers": payload.get("blockers", []),
+        "next_action": payload.get("next_action", ""),
+        "created_at": _schoolhouse_now(),
+    }
+
+    if confidence_after > confidence_before:
+        readiness_signal = "improved"
+    elif confidence_after == confidence_before:
+        readiness_signal = "unchanged"
+    else:
+        readiness_signal = "declined"
+
+    session["readiness_signal"] = readiness_signal
+
+    _schoolhouse_study_sessions.append(session)
+
+    return {
+        "status": "ok",
+        "study_session": session,
+    }
+
+
+@app.get("/api/schoolhouse/daily-brief")
+async def schoolhouse_daily_brief() -> Dict[str, Any]:
+    active_courses = [
+        course for course in _schoolhouse_courses
+        if str(course.get("status", "")).lower() != "completed"
+    ]
+
+    high_priority_courses = [
+        course for course in active_courses
+        if str(course.get("priority", "")).lower() == "high"
+    ]
+
+    if high_priority_courses:
+        recommended_focus = high_priority_courses[0].get("name")
+        next_action = high_priority_courses[0].get("next_action") or high_priority_courses[0].get("current_task")
+    elif active_courses:
+        recommended_focus = active_courses[0].get("name")
+        next_action = active_courses[0].get("next_action") or active_courses[0].get("current_task")
+    else:
+        recommended_focus = "Add your current WGU course."
+        next_action = "Create a course entry and define the next study action."
+
+    return {
+        "status": "ok",
+        "brief": {
+            "mission": "Move school work forward today without overbuilding or context switching.",
+            "recommended_focus": recommended_focus,
+            "next_action": next_action,
+            "active_courses": len(active_courses),
+            "study_sessions_logged": len(_schoolhouse_study_sessions),
+            "recommended_study_block_minutes": 45,
+            "rules": [
+                "Study one course at a time.",
+                "Use quiz mode for recall, not passive reading.",
+                "Log wrong answers immediately.",
+                "End with a next action.",
+            ],
+        },
+    }
+
+
+@app.post("/api/schoolhouse/quiz")
+async def schoolhouse_quiz(payload: Dict[str, Any]) -> Dict[str, Any]:
+    course = payload.get("course", "")
+    topic = payload.get("topic", "")
+    difficulty = payload.get("difficulty", "medium")
+
+    question = payload.get("question")
+    if not question:
+        question = f"Explain the most important concept from {topic or course or 'this lesson'} in your own words."
+
+    return {
+        "status": "ok",
+        "mode": "one_question_at_a_time",
+        "course": course,
+        "topic": topic,
+        "difficulty": difficulty,
+        "question": question,
+        "instructions": [
+            "Answer without looking it up first.",
+            "Use your own words.",
+            "After answering, review why your answer was correct or incomplete.",
+        ],
+    }
+
+
+@app.post("/api/schoolhouse/wrong-answer-review")
+async def schoolhouse_wrong_answer_review(payload: Dict[str, Any]) -> Dict[str, Any]:
+    review = {
+        "id": str(payload.get("id") or uuid4()),
+        "course": payload.get("course", ""),
+        "question": payload.get("question", ""),
+        "selected_answer": payload.get("selected_answer", ""),
+        "correct_answer": payload.get("correct_answer", ""),
+        "why_wrong": payload.get("why_wrong", ""),
+        "rule_to_remember": payload.get("rule_to_remember", ""),
+        "next_drill": payload.get("next_drill", "Create one similar question and answer it without notes."),
+        "created_at": _schoolhouse_now(),
+    }
+
+    _schoolhouse_wrong_answer_reviews.append(review)
+
+    return {
+        "status": "ok",
+        "review": review,
+        "teaching_point": "A wrong answer is useful only if it becomes a rule, example, or drill.",
+    }
+
+
+@app.post("/api/schoolhouse/writing-task")
+async def schoolhouse_writing_task(payload: Dict[str, Any]) -> Dict[str, Any]:
+    task = {
+        "id": str(payload.get("id") or uuid4()),
+        "course": payload.get("course", ""),
+        "task_name": payload.get("task_name", ""),
+        "prompt": payload.get("prompt", ""),
+        "rubric_items": payload.get("rubric_items", []),
+        "status": payload.get("status", "drafting"),
+        "next_action": payload.get("next_action", "Break the rubric into required sections."),
+        "created_at": _schoolhouse_now(),
+    }
+
+    _schoolhouse_writing_tasks.append(task)
+
+    section_plan = [
+        {
+            "rubric_item": item,
+            "required_action": "Write a direct paragraph that satisfies this rubric item.",
+        }
+        for item in task["rubric_items"]
+    ]
+
+    return {
+        "status": "ok",
+        "writing_task": task,
+        "section_plan": section_plan,
+        "rule": "Answer the rubric directly. Do not write extra material that does not earn points.",
+    }
