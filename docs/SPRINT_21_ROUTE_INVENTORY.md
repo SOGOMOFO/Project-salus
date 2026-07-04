@@ -3,9 +3,9 @@
 ## Summary
 - Source: `backend/main.py`
 - Route count: 84
-- Sprint marker count: 20
-- Line count: 4589
-- Route source count: 3
+- Sprint marker count: 19
+- Line count: 4022
+- Route source count: 5
 
 ## Sprint Markers
 - --- Sprint 01 Core Loop compatibility endpoints ---
@@ -25,9 +25,8 @@
 - --- Sprint 14 Command Launcher and Navigation System ---
 - --- Sprint 15 Daily Driver Polish ---
 - --- Sprint 16 Record Management Controls ---
-- --- Sprint 17 Daily Workflow Automation ---
-- --- Sprint 18 Navigation Unification and UX Cleanup ---
 - --- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---
+- --- Sprint 24 Extract Navigation and Workflow Routers ---
 
 ## Routes
 
@@ -46,7 +45,7 @@
 | GET | `/api/command/dashboard-index` | `dashboard_index_api` | `backend/routes/dashboard_index.py` | `router` |
 | GET | `/api/command/health` | `sprint14_command_health` | `backend/main.py` | `app` |
 | GET | `/api/command/integrated-state` | `sprint10_integrated_command_state` | `backend/main.py` | `app` |
-| GET | `/api/command/navigation` | `sprint18_command_navigation` | `backend/main.py` | `app` |
+| GET | `/api/command/navigation` | `navigation_api` | `backend/routes/navigation.py` | `router` |
 | GET | `/api/command/readiness` | `readiness_api` | `backend/routes/readiness.py` | `router` |
 | GET | `/api/command/records` | `sprint16_record_management_state` | `backend/main.py` | `app` |
 | POST | `/api/command/records/archive` | `sprint16_archive_record` | `backend/main.py` | `app` |
@@ -91,9 +90,9 @@
 | POST | `/api/skills/charisma/conversation-aar` | `charisma_conversation_aar` | `backend/main.py` | `app` |
 | GET | `/api/skills/charisma/daily-drill` | `charisma_daily_drill` | `backend/main.py` | `app` |
 | POST | `/api/skills/charisma/self-assessment` | `charisma_self_assessment` | `backend/main.py` | `app` |
-| GET | `/api/workflows/evening` | `sprint17_evening_workflow` | `backend/main.py` | `app` |
-| GET | `/api/workflows/morning` | `sprint17_morning_workflow` | `backend/main.py` | `app` |
-| GET | `/api/workflows/today` | `sprint17_today_workflows` | `backend/main.py` | `app` |
+| GET | `/api/workflows/evening` | `evening_workflow_api` | `backend/routes/workflows.py` | `router` |
+| GET | `/api/workflows/morning` | `morning_workflow_api` | `backend/routes/workflows.py` | `router` |
+| GET | `/api/workflows/today` | `today_workflows_api` | `backend/routes/workflows.py` | `router` |
 | POST | `/auth` | `auth` | `backend/main.py` | `app` |
 | GET | `/command` | `sprint03_command_page` | `backend/main.py` | `app` |
 | GET | `/command/daily` | `sprint07_daily_command_page` | `backend/main.py` | `app` |
@@ -101,12 +100,12 @@
 | GET | `/command/dashboard-index` | `dashboard_index_page` | `backend/routes/dashboard_index.py` | `router` |
 | GET | `/command/home` | `sprint14_command_home_page` | `backend/main.py` | `app` |
 | GET | `/command/integrated` | `sprint10_integrated_command_dashboard` | `backend/main.py` | `app` |
-| GET | `/command/navigation` | `sprint18_navigation_page` | `backend/main.py` | `app` |
+| GET | `/command/navigation` | `navigation_page` | `backend/routes/navigation.py` | `router` |
 | GET | `/command/ops` | `sprint11_operational_dashboard` | `backend/main.py` | `app` |
 | GET | `/command/readiness` | `readiness_page` | `backend/routes/readiness.py` | `router` |
 | GET | `/command/records` | `sprint16_record_management_page` | `backend/main.py` | `app` |
 | GET | `/command/review` | `sprint13_review_dashboard` | `backend/main.py` | `app` |
-| GET | `/command/workflows` | `sprint17_workflows_page` | `backend/main.py` | `app` |
+| GET | `/command/workflows` | `workflows_page` | `backend/routes/workflows.py` | `router` |
 | GET | `/core/memory/status` | `core_memory_status` | `backend/main.py` | `app` |
 | GET | `/core/plugins/status` | `core_plugins_status` | `backend/main.py` | `app` |
 | GET | `/health` | `health` | `backend/main.py` | `app` |

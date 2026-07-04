@@ -4,11 +4,11 @@
   "source": "backend/main.py",
   "metrics": {
     "path": "backend/main.py",
-    "line_count": 4589,
-    "character_count": 150552,
-    "sprint_marker_count": 20,
+    "line_count": 4022,
+    "character_count": 132051,
+    "sprint_marker_count": 19,
     "route_count": 84,
-    "route_source_count": 3
+    "route_source_count": 5
   },
   "sprint_markers": [
     "--- Sprint 01 Core Loop compatibility endpoints ---",
@@ -28,9 +28,8 @@
     "--- Sprint 14 Command Launcher and Navigation System ---",
     "--- Sprint 15 Daily Driver Polish ---",
     "--- Sprint 16 Record Management Controls ---",
-    "--- Sprint 17 Daily Workflow Automation ---",
-    "--- Sprint 18 Navigation Unification and UX Cleanup ---",
-    "--- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---"
+    "--- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---",
+    "--- Sprint 24 Extract Navigation and Workflow Routers ---"
   ],
   "routes": [
     {
@@ -127,9 +126,9 @@
     {
       "method": "GET",
       "path": "/api/command/navigation",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint18_command_navigation"
+      "source_file": "backend/routes/navigation.py",
+      "decorator_owner": "router",
+      "handler": "navigation_api"
     },
     {
       "method": "GET",
@@ -442,23 +441,23 @@
     {
       "method": "GET",
       "path": "/api/workflows/evening",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint17_evening_workflow"
+      "source_file": "backend/routes/workflows.py",
+      "decorator_owner": "router",
+      "handler": "evening_workflow_api"
     },
     {
       "method": "GET",
       "path": "/api/workflows/morning",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint17_morning_workflow"
+      "source_file": "backend/routes/workflows.py",
+      "decorator_owner": "router",
+      "handler": "morning_workflow_api"
     },
     {
       "method": "GET",
       "path": "/api/workflows/today",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint17_today_workflows"
+      "source_file": "backend/routes/workflows.py",
+      "decorator_owner": "router",
+      "handler": "today_workflows_api"
     },
     {
       "method": "POST",
@@ -512,9 +511,9 @@
     {
       "method": "GET",
       "path": "/command/navigation",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint18_navigation_page"
+      "source_file": "backend/routes/navigation.py",
+      "decorator_owner": "router",
+      "handler": "navigation_page"
     },
     {
       "method": "GET",
@@ -547,9 +546,9 @@
     {
       "method": "GET",
       "path": "/command/workflows",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint17_workflows_page"
+      "source_file": "backend/routes/workflows.py",
+      "decorator_owner": "router",
+      "handler": "workflows_page"
     },
     {
       "method": "GET",
@@ -623,6 +622,6 @@
     }
   ],
   "route_count": 84,
-  "sprint_marker_count": 20,
+  "sprint_marker_count": 19,
   "recommendation": "Continue modular route extraction one route group at a time with tests green after every extraction."
 }
