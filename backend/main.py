@@ -4578,3 +4578,367 @@ async def sprint18_navigation_page() -> _Sprint18HTMLResponse:
     </html>
     """
     return _Sprint18HTMLResponse(content=html)
+
+
+
+# --- Sprint 19 System Status and Readiness Scoring ---
+from fastapi.responses import HTMLResponse as _Sprint19HTMLResponse
+
+
+def _sprint19_count(name: str) -> int:
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return len(value)
+    if isinstance(value, list):
+        return len(value)
+    return 0
+
+
+def _sprint19_records_for(name: str):
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return list(value.values())
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _sprint19_archived_count() -> int:
+    record_names = [
+        "_sprint01_missions",
+        "_sprint01_daily_briefs",
+        "_sprint04_aars",
+        "_schoolhouse_courses",
+        "_schoolhouse_study_sessions",
+        "_schoolhouse_wrong_answer_reviews",
+        "_schoolhouse_writing_tasks",
+        "_charisma_self_assessments",
+        "_charisma_conversation_aars",
+    ]
+
+    total = 0
+    for name in record_names:
+        for item in _sprint19_records_for(name):
+            if isinstance(item, dict) and item.get("archived") is True:
+                total += 1
+
+    return total
+
+
+def _sprint19_level(score: int) -> str:
+    if score >= 85:
+        return "green"
+    if score >= 65:
+        return "amber"
+    if score >= 40:
+        return "red"
+    return "critical"
+
+
+def _sprint19_component(status: str, score: int, summary: str, recommendations: list) -> Dict[str, Any]:
+    return {
+        "status": status,
+        "score": score,
+        "summary": summary,
+        "recommendations": recommendations,
+    }
+
+
+@app.get("/api/command/readiness")
+async def sprint19_readiness() -> Dict[str, Any]:
+    counts = {
+        "missions": _sprint19_count("_sprint01_missions"),
+        "daily_briefs": _sprint19_count("_sprint01_daily_briefs"),
+        "aars": _sprint19_count("_sprint04_aars"),
+        "schoolhouse_courses": _sprint19_count("_schoolhouse_courses"),
+        "schoolhouse_study_sessions": _sprint19_count("_schoolhouse_study_sessions"),
+        "schoolhouse_wrong_answer_reviews": _sprint19_count("_schoolhouse_wrong_answer_reviews"),
+        "schoolhouse_writing_tasks": _sprint19_count("_schoolhouse_writing_tasks"),
+        "charisma_self_assessments": _sprint19_count("_charisma_self_assessments"),
+        "charisma_conversation_aars": _sprint19_count("_charisma_conversation_aars"),
+        "archived_records": _sprint19_archived_count(),
+    }
+
+    daily_score = 0
+    daily_recommendations = []
+
+    if counts["daily_briefs"] > 0:
+        daily_score += 7
+    else:
+        daily_recommendations.append("Create a daily brief from /command/ops.")
+
+    if counts["missions"] > 0:
+        daily_score += 7
+    else:
+        daily_recommendations.append("Create at least one active mission.")
+
+    if counts["aars"] > 0:
+        daily_score += 6
+    else:
+        daily_recommendations.append("Close the day with one AAR.")
+
+    schoolhouse_score = 0
+    schoolhouse_recommendations = []
+
+    if counts["schoolhouse_courses"] > 0:
+        schoolhouse_score += 10
+    else:
+        schoolhouse_recommendations.append("Add your current WGU course to Schoolhouse.")
+
+    if counts["schoolhouse_study_sessions"] > 0:
+        schoolhouse_score += 10
+    else:
+        schoolhouse_recommendations.append("Log one focused study session.")
+
+    charisma_score = 0
+    charisma_recommendations = []
+
+    if counts["charisma_self_assessments"] > 0:
+        charisma_score += 10
+    else:
+        charisma_recommendations.append("Complete one charisma self-assessment.")
+
+    if counts["charisma_conversation_aars"] > 0:
+        charisma_score += 10
+    else:
+        charisma_recommendations.append("Log one important conversation AAR.")
+
+    total_records = sum([
+        counts["missions"],
+        counts["daily_briefs"],
+        counts["aars"],
+        counts["schoolhouse_courses"],
+        counts["schoolhouse_study_sessions"],
+        counts["schoolhouse_wrong_answer_reviews"],
+        counts["schoolhouse_writing_tasks"],
+        counts["charisma_self_assessments"],
+        counts["charisma_conversation_aars"],
+    ])
+
+    hygiene_score = 20
+    hygiene_recommendations = []
+
+    if counts["archived_records"] > 10:
+        hygiene_score -= 5
+        hygiene_recommendations.append("Review archived records and delete demo/test records if needed.")
+
+    if total_records > 50:
+        hygiene_score -= 5
+        hygiene_recommendations.append("Review records for clutter from /command/records.")
+
+    if not hygiene_recommendations:
+        hygiene_recommendations.append("Data hygiene is acceptable.")
+
+    system_score = 20
+    system_recommendations = [
+        "Use /command/navigation for page access.",
+        "Use /command/workflows as the primary daily operating guide.",
+    ]
+
+    components = {
+        "system": _sprint19_component(
+            "ok",
+            system_score,
+            "Local Project Salus app is responding.",
+            system_recommendations,
+        ),
+        "daily_operations": _sprint19_component(
+            _sprint19_level(daily_score * 5),
+            daily_score,
+            "Daily loop readiness based on briefs, missions, and AARs.",
+            daily_recommendations or ["Daily operations data exists."],
+        ),
+        "schoolhouse": _sprint19_component(
+            _sprint19_level(schoolhouse_score * 5),
+            schoolhouse_score,
+            "Schoolhouse readiness based on course and study-session activity.",
+            schoolhouse_recommendations or ["Schoolhouse activity exists."],
+        ),
+        "charisma": _sprint19_component(
+            _sprint19_level(charisma_score * 5),
+            charisma_score,
+            "Charisma readiness based on self-assessment and conversation AAR activity.",
+            charisma_recommendations or ["Charisma training activity exists."],
+        ),
+        "data_hygiene": _sprint19_component(
+            _sprint19_level(hygiene_score * 5),
+            hygiene_score,
+            "Data hygiene based on total records and archived records.",
+            hygiene_recommendations,
+        ),
+    }
+
+    total_score = system_score + daily_score + schoolhouse_score + charisma_score + hygiene_score
+    readiness_level = _sprint19_level(total_score)
+
+    top_recommendations = []
+    for component in components.values():
+        top_recommendations.extend(component["recommendations"])
+
+    return {
+        "status": "ok",
+        "module": "system_status_readiness_scoring",
+        "score": total_score,
+        "max_score": 100,
+        "readiness_level": readiness_level,
+        "counts": counts,
+        "components": components,
+        "top_recommendations": top_recommendations[:8],
+        "primary_pages": {
+            "readiness": "/command/readiness",
+            "navigation": "/command/navigation",
+            "workflows": "/command/workflows",
+            "daily_driver": "/command/daily-driver",
+            "ops": "/command/ops",
+            "review": "/command/review",
+            "records": "/command/records",
+        },
+        "next_action": "Open /command/workflows and run the morning or evening checklist.",
+    }
+
+
+@app.get("/command/readiness", response_class=_Sprint19HTMLResponse)
+async def sprint19_readiness_page() -> _Sprint19HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Readiness</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 { color: #d7b46a; }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          a.button, button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .score {
+            font-size: 42px;
+            font-weight: bold;
+            color: #d7b46a;
+          }
+          .muted { color: #aab7c7; }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Readiness</h1>
+        <p class="muted">Fast status view for the system, daily loop, Schoolhouse, Charisma, and data hygiene.</p>
+
+        <div class="panel">
+          <h2>Navigation</h2>
+          <a class="button" href="/command/workflows">Workflows</a>
+          <a class="button" href="/command/navigation">Navigation Hub</a>
+          <a class="button" href="/command/daily-driver">Daily Driver</a>
+          <a class="button" href="/command/ops">Ops</a>
+          <a class="button" href="/command/review">Review</a>
+          <a class="button" href="/command/records">Records</a>
+          <button onclick="loadReadiness()">Refresh Readiness</button>
+        </div>
+
+        <div class="panel">
+          <h2>Overall Readiness</h2>
+          <div class="score" id="score">Loading...</div>
+          <pre id="summary">Loading...</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>System</h2>
+            <pre id="system">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Daily Operations</h2>
+            <pre id="daily_operations">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse</h2>
+            <pre id="schoolhouse">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma</h2>
+            <pre id="charisma">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Data Hygiene</h2>
+            <pre id="data_hygiene">Loading...</pre>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Full Readiness State</h2>
+          <pre id="state">Loading...</pre>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function loadReadiness() {
+            const state = await getJson("/api/command/readiness");
+
+            document.getElementById("score").textContent =
+              state.score + "/" + state.max_score + " — " + state.readiness_level.toUpperCase();
+
+            show("summary", {
+              next_action: state.next_action,
+              top_recommendations: state.top_recommendations
+            });
+
+            show("system", state.components.system);
+            show("daily_operations", state.components.daily_operations);
+            show("schoolhouse", state.components.schoolhouse);
+            show("charisma", state.components.charisma);
+            show("data_hygiene", state.components.data_hygiene);
+            show("state", state);
+          }
+
+          loadReadiness();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint19HTMLResponse(content=html)

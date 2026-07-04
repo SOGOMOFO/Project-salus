@@ -27,9 +27,3 @@ Project Salus now has navigation and workflows, but Kyle still needs a fast stat
 5. Score includes Charisma readiness.
 6. Score includes data hygiene signal.
 7. Tests pass.
-
-## Do Not Build Yet
-- Advanced analytics
-- Predictive modeling
-- External integrations
-- Cloud deployment
