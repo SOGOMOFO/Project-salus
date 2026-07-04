@@ -914,29 +914,24 @@ async def sprint02_list_core_missions() -> Dict[str, Any]:
 
 
 @app.get("/command", response_class=_Sprint02HTMLResponse)
-async def sprint02_command_ui() -> str:
-    return """
+async def sprint03_command_page():
+    html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Salus Command OS</title>
   <style>
     :root {
       --bg: #07111f;
-      --panel: #0d1b2e;
-      --panel2: #13243b;
-      --gold: #d4af37;
+      --panel: #0f1b2d;
+      --panel-2: #13243a;
+      --gold: #d8a735;
       --text: #f4f7fb;
-      --muted: #9fb0c5;
+      --muted: #a8b3c5;
       --danger: #ff6b6b;
-      --ok: #3ddc97;
-      --border: #223753;
-    }
-
-    * {
-      box-sizing: border-box;
+      --ok: #64d28a;
+      --border: #263954;
     }
 
     body {
@@ -947,31 +942,31 @@ async def sprint02_command_ui() -> str:
     }
 
     header {
-      padding: 18px 24px;
+      padding: 24px 32px;
       border-bottom: 1px solid var(--border);
-      background: #050c16;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      background: #050b14;
     }
 
     h1 {
       margin: 0;
       color: var(--gold);
-      font-size: 24px;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.5px;
+    }
+
+    h2 {
+      color: var(--gold);
+      margin-top: 0;
     }
 
     .sub {
       color: var(--muted);
-      font-size: 13px;
-      margin-top: 4px;
+      margin-top: 8px;
     }
 
     main {
-      padding: 20px;
+      padding: 24px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
       gap: 18px;
     }
 
@@ -979,36 +974,30 @@ async def sprint02_command_ui() -> str:
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+      padding: 18px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
     }
 
     .wide {
-      grid-column: span 2;
-    }
-
-    h2 {
-      margin: 0 0 12px 0;
-      color: var(--gold);
-      font-size: 18px;
+      grid-column: 1 / -1;
     }
 
     label {
       display: block;
-      margin-top: 10px;
+      margin-top: 12px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 14px;
     }
 
     input, textarea, select {
       width: 100%;
-      margin-top: 5px;
+      box-sizing: border-box;
+      margin-top: 6px;
       padding: 10px;
-      background: var(--panel2);
-      color: var(--text);
-      border: 1px solid var(--border);
       border-radius: 8px;
-      font-size: 14px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
     }
 
     textarea {
@@ -1016,127 +1005,108 @@ async def sprint02_command_ui() -> str:
     }
 
     button {
-      margin-top: 12px;
+      margin-top: 14px;
       padding: 10px 14px;
-      background: var(--gold);
-      border: none;
-      color: #0a0f18;
-      font-weight: bold;
       border-radius: 8px;
+      border: 1px solid var(--gold);
+      background: var(--gold);
+      color: #08111e;
+      font-weight: 700;
       cursor: pointer;
     }
 
     button.secondary {
-      background: var(--panel2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      margin-right: 8px;
+      background: transparent;
+      color: var(--gold);
     }
 
     pre {
-      background: #050c16;
-      padding: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #07101d;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      overflow: auto;
-      color: #dce7f5;
-      border: 1px solid var(--border);
-      max-height: 320px;
-    }
-
-    .mission {
-      border: 1px solid var(--border);
-      background: var(--panel2);
-      border-radius: 10px;
       padding: 12px;
-      margin-bottom: 10px;
-    }
-
-    .mission-title {
-      font-weight: bold;
       color: var(--text);
+      max-height: 360px;
+      overflow: auto;
     }
 
-    .mission-meta {
+    .status {
+      margin-top: 10px;
       color: var(--muted);
-      font-size: 13px;
-      margin-top: 5px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: #1c3353;
-      color: var(--text);
-      font-size: 12px;
-      margin-right: 6px;
+      font-size: 14px;
     }
 
     .ok {
       color: var(--ok);
     }
 
-    .danger {
+    .error {
       color: var(--danger);
     }
 
-    @media (max-width: 900px) {
-      main {
-        grid-template-columns: 1fr;
-      }
+    .mission-card, .aar-card {
+      background: #07101d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+    }
 
-      .wide {
-        grid-column: span 1;
-      }
+    .mission-title {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
     }
   </style>
 </head>
+
 <body>
   <header>
-    <div>
-      <h1>Salus Command OS</h1>
-      <div class="sub">Sprint 02 — Local Commander Dashboard UI</div>
-    </div>
-    <div class="sub">Human in command. AI as force multiplier.</div>
+    <h1>Salus Command OS</h1>
+    <div class="sub">Sprint 03 — Local Command Loop UI</div>
   </header>
 
   <main>
-    <section class="panel">
+    <section class="panel wide">
       <h2>Commander Dashboard</h2>
       <button onclick="loadAll()">Refresh Dashboard</button>
-      <pre id="dashboard">Loading...</pre>
+      <div id="global_status" class="status">Ready.</div>
+      <pre id="dashboard">Loading dashboard...</pre>
     </section>
 
     <section class="panel">
       <h2>Daily Commander Brief</h2>
+
       <label>Commander Intent</label>
-      <textarea id="brief_intent">Use Project Salus daily.</textarea>
+      <textarea id="brief_intent">Use Project Salus daily and complete the command loop.</textarea>
 
-      <label>Top Priorities, one per line</label>
-      <textarea id="brief_priorities">Test UI
-Prepare Sprint 02
-Avoid scope creep</textarea>
+      <label>Top Priorities</label>
+      <input id="brief_priorities" value="Test UI, Create mission, Enter AAR" />
 
-      <label>Risks, one per line</label>
-      <textarea id="brief_risks">Scope creep
-Tool distraction</textarea>
+      <label>Risks</label>
+      <input id="brief_risks" value="Scope creep, Tool distraction" />
 
-      <label>Next Actions, one per line</label>
-      <textarea id="brief_actions">Create mission
-Run tests
-Commit checkpoint</textarea>
+      <label>Next Actions</label>
+      <input id="brief_actions" value="Run smoke test, Commit checkpoint" />
 
-      <button onclick="createBrief()">Save Daily Brief</button>
+      <button onclick="saveBrief()">Save Daily Brief</button>
       <pre id="brief_result">No brief saved yet.</pre>
     </section>
 
     <section class="panel">
       <h2>Create Mission</h2>
+
       <label>Title</label>
-      <input id="mission_title" value="Sprint 02 Dashboard UI" />
+      <input id="mission_title" value="Sprint 03 Mission/AAR UI" />
 
       <label>Intent</label>
-      <textarea id="mission_intent">Create usable visual command dashboard.</textarea>
+      <textarea id="mission_intent">Complete the browser-based command loop.</textarea>
 
       <label>Priority</label>
       <select id="mission_priority">
@@ -1161,146 +1131,332 @@ Commit checkpoint</textarea>
       </select>
 
       <label>Next Action</label>
-      <input id="mission_next_action" value="Define UI scope" />
+      <input id="mission_next_action" value="Create AAR form" />
+
+      <label>Due Date</label>
+      <input id="mission_due_date" value="2026-07-31" />
 
       <button onclick="createMission()">Create Mission</button>
       <pre id="mission_result">No mission created yet.</pre>
     </section>
 
-    <section class="panel">
+    <section class="panel wide">
       <h2>Active Missions</h2>
       <button onclick="loadMissions()">Refresh Missions</button>
-      <div id="missions">Loading...</div>
+      <div id="missions">Loading missions...</div>
+    </section>
+
+    <section class="panel">
+      <h2>Update Mission</h2>
+
+      <label>Mission ID</label>
+      <input id="update_mission_id" placeholder="Paste mission id from Active Missions" />
+
+      <label>Status</label>
+      <select id="update_status">
+        <option>planned</option>
+        <option>in_progress</option>
+        <option>blocked</option>
+        <option>completed</option>
+      </select>
+
+      <label>Priority</label>
+      <select id="update_priority">
+        <option>high</option>
+        <option>medium</option>
+        <option>low</option>
+      </select>
+
+      <label>Risk</label>
+      <select id="update_risk">
+        <option>low</option>
+        <option>medium</option>
+        <option>high</option>
+      </select>
+
+      <label>Next Action</label>
+      <input id="update_next_action" value="Run tests and commit" />
+
+      <button onclick="updateMission()">Update Mission</button>
+      <pre id="update_result">No mission updated yet.</pre>
+    </section>
+
+    <section class="panel">
+      <h2>AAR Entry</h2>
+
+      <label>What Happened</label>
+      <textarea id="aar_what_happened">Built and tested the next Project Salus command loop step.</textarea>
+
+      <label>What Worked</label>
+      <textarea id="aar_what_worked">Small sprint scope and test gates kept the build controlled.</textarea>
+
+      <label>What Failed</label>
+      <textarea id="aar_what_failed">Tool/API key issues slowed AI coding assistance.</textarea>
+
+      <label>Lesson Learned</label>
+      <textarea id="aar_lesson_learned">Manual patching is a reliable fallback when AI tooling blocks execution.</textarea>
+
+      <label>Adjustment</label>
+      <textarea id="aar_adjustment">Use batch-mode patches and tests for faster progress.</textarea>
+
+      <button onclick="saveAAR()">Save AAR</button>
+      <pre id="aar_result">No AAR saved yet.</pre>
+    </section>
+
+    <section class="panel wide">
+      <h2>AAR Log</h2>
+      <button onclick="loadAARs()">Refresh AARs</button>
+      <div id="aars">Loading AARs...</div>
     </section>
 
     <section class="panel wide">
       <h2>Sprint Guardrails</h2>
       <pre>
 DO BUILD:
-- Dashboard summary
-- Daily brief view/create
-- Mission create/list/update
-- Basic local usability
+- Mission creation
+- Mission update
+- AAR entry
+- AAR display
+- Dashboard refresh
+- Basic success/error messages
 
-DO NOT BUILD YET:
-- Agent fleets
+DO NOT BUILD:
+- Login
+- Multi-user support
 - Supabase
-- Vector DB
-- Multi-user
-- Public product
-- Payments
-- Enterprise portal
-- Frontend polish rabbit hole
+- Agent orchestration
+- Public deployment
+- Mobile app
       </pre>
     </section>
   </main>
 
   <script>
-    function lines(id) {
-      return document.getElementById(id).value
-        .split("\\n")
-        .map(x => x.trim())
-        .filter(Boolean);
+    function showStatus(message, ok = true) {
+      const el = document.getElementById("global_status");
+      el.textContent = message;
+      el.className = ok ? "status ok" : "status error";
     }
 
-    async function jsonFetch(url, options = {}) {
-      const response = await fetch(url, options);
-      const text = await response.text();
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        headers: {"Content-Type": "application/json"},
+        ...options
+      });
 
+      let data;
       try {
-        return JSON.parse(text);
+        data = await response.json();
       } catch {
-        return { raw: text, status: response.status };
+        data = {raw: await response.text()};
       }
+
+      if (!response.ok) {
+        throw new Error(JSON.stringify(data));
+      }
+
+      return data;
     }
 
     async function loadDashboard() {
-      const data = await jsonFetch("/api/dashboard");
+      const data = await api("/api/dashboard");
       document.getElementById("dashboard").textContent = JSON.stringify(data, null, 2);
+      return data;
     }
 
-    async function createBrief() {
-      const payload = {
-        commander_intent: document.getElementById("brief_intent").value,
-        top_priorities: lines("brief_priorities"),
-        risks: lines("brief_risks"),
-        next_actions: lines("brief_actions")
-      };
+    async function saveBrief() {
+      try {
+        const payload = {
+          commander_intent: document.getElementById("brief_intent").value,
+          top_priorities: document.getElementById("brief_priorities").value.split(",").map(x => x.trim()).filter(Boolean),
+          risks: document.getElementById("brief_risks").value.split(",").map(x => x.trim()).filter(Boolean),
+          next_actions: document.getElementById("brief_actions").value.split(",").map(x => x.trim()).filter(Boolean)
+        };
 
-      const data = await jsonFetch("/api/daily-brief", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
+        const data = await api("/api/daily-brief", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
 
-      document.getElementById("brief_result").textContent = JSON.stringify(data, null, 2);
-      await loadDashboard();
+        document.getElementById("brief_result").textContent = JSON.stringify(data, null, 2);
+        showStatus("Daily brief saved.");
+        await loadDashboard();
+      } catch (err) {
+        showStatus("Daily brief save failed: " + err.message, false);
+      }
     }
 
     async function createMission() {
-      const payload = {
-        title: document.getElementById("mission_title").value,
-        intent: document.getElementById("mission_intent").value,
-        priority: document.getElementById("mission_priority").value,
-        status: document.getElementById("mission_status").value,
-        risk: document.getElementById("mission_risk").value,
-        next_action: document.getElementById("mission_next_action").value
-      };
+      try {
+        const payload = {
+          title: document.getElementById("mission_title").value,
+          intent: document.getElementById("mission_intent").value,
+          priority: document.getElementById("mission_priority").value,
+          status: document.getElementById("mission_status").value,
+          risk: document.getElementById("mission_risk").value,
+          next_action: document.getElementById("mission_next_action").value,
+          due_date: document.getElementById("mission_due_date").value
+        };
 
-      const data = await jsonFetch("/missions", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload)
-      });
+        const data = await api("/api/missions", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
 
-      document.getElementById("mission_result").textContent = JSON.stringify(data, null, 2);
-      await loadAll();
-    }
-
-    async function updateMission(id, status) {
-      await jsonFetch(`/missions/${id}`, {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({status: status})
-      });
-
-      await loadAll();
-    }
-
-    function missionHtml(mission) {
-      return `
-        <div class="mission">
-          <div class="mission-title">${mission.title || "Untitled mission"}</div>
-          <div class="mission-meta">
-            <span class="badge">Status: ${mission.status}</span>
-            <span class="badge">Priority: ${mission.priority}</span>
-            <span class="badge">Risk: ${mission.risk}</span>
-          </div>
-          <div class="mission-meta">Intent: ${mission.intent || ""}</div>
-          <div class="mission-meta">Next action: ${mission.next_action || ""}</div>
-          <button class="secondary" onclick="updateMission('${mission.id}', 'in_progress')">Mark In Progress</button>
-          <button class="secondary" onclick="updateMission('${mission.id}', 'completed')">Mark Complete</button>
-        </div>
-      `;
+        document.getElementById("mission_result").textContent = JSON.stringify(data, null, 2);
+        document.getElementById("update_mission_id").value = data.mission.id;
+        showStatus("Mission created.");
+        await loadMissions();
+        await loadDashboard();
+      } catch (err) {
+        showStatus("Mission creation failed: " + err.message, false);
+      }
     }
 
     async function loadMissions() {
-      const data = await jsonFetch("/api/core/missions");
-      const missions = data.missions || [];
+      try {
+        const data = await api("/api/missions");
+        const missions = data.missions || [];
+        const container = document.getElementById("missions");
 
-      document.getElementById("missions").innerHTML =
-        missions.length
-          ? missions.map(missionHtml).join("")
-          : "<div class='mission-meta'>No missions yet.</div>";
+        if (!missions.length) {
+          container.innerHTML = "<div class='small'>No missions yet.</div>";
+          return;
+        }
+
+        container.innerHTML = missions.map(m => `
+          <div class="mission-card">
+            <div class="mission-title">${m.title || "Untitled Mission"}</div>
+            <div class="small">ID: ${m.id}</div>
+            <div>Status: ${m.status || ""} | Priority: ${m.priority || ""} | Risk: ${m.risk || ""}</div>
+            <div>Intent: ${m.intent || ""}</div>
+            <div>Next Action: ${m.next_action || ""}</div>
+            <button class="secondary" onclick="selectMission('${m.id}', '${m.status || ""}', '${m.priority || ""}', '${m.risk || ""}', '${(m.next_action || "").replace(/'/g, "\\'")}')">Select for Update</button>
+          </div>
+        `).join("");
+      } catch (err) {
+        document.getElementById("missions").innerHTML = "<div class='error'>Mission load failed: " + err.message + "</div>";
+      }
+    }
+
+    function selectMission(id, status, priority, risk, nextAction) {
+      document.getElementById("update_mission_id").value = id;
+      if (status) document.getElementById("update_status").value = status;
+      if (priority) document.getElementById("update_priority").value = priority;
+      if (risk) document.getElementById("update_risk").value = risk;
+      document.getElementById("update_next_action").value = nextAction || "";
+      showStatus("Mission selected for update.");
+    }
+
+    async function updateMission() {
+      try {
+        const id = document.getElementById("update_mission_id").value.trim();
+
+        if (!id) {
+          throw new Error("Mission ID required.");
+        }
+
+        const payload = {
+          status: document.getElementById("update_status").value,
+          priority: document.getElementById("update_priority").value,
+          risk: document.getElementById("update_risk").value,
+          next_action: document.getElementById("update_next_action").value
+        };
+
+        const data = await api(`/api/missions/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+
+        document.getElementById("update_result").textContent = JSON.stringify(data, null, 2);
+        showStatus("Mission updated.");
+        await loadMissions();
+        await loadDashboard();
+      } catch (err) {
+        showStatus("Mission update failed: " + err.message, false);
+      }
+    }
+
+    async function saveAAR() {
+      try {
+        const payload = {
+          what_happened: document.getElementById("aar_what_happened").value,
+          what_worked: document.getElementById("aar_what_worked").value,
+          what_failed: document.getElementById("aar_what_failed").value,
+          lesson_learned: document.getElementById("aar_lesson_learned").value,
+          adjustment: document.getElementById("aar_adjustment").value
+        };
+
+        const data = await api("/api/aar", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        document.getElementById("aar_result").textContent = JSON.stringify(data, null, 2);
+        showStatus("AAR saved.");
+        await loadAARs();
+        await loadDashboard();
+      } catch (err) {
+        showStatus("AAR save failed: " + err.message, false);
+      }
+    }
+
+    async function loadAARs() {
+      try {
+        const data = await api("/api/aar");
+        const list = data.aars || data.aar_log || data.items || data || [];
+        const aars = Array.isArray(list) ? list : [list];
+        const container = document.getElementById("aars");
+
+        if (!aars.length) {
+          container.innerHTML = "<div class='small'>No AARs yet.</div>";
+          return;
+        }
+
+        container.innerHTML = aars.map(a => `
+          <div class="aar-card">
+            <div class="mission-title">${a.title || a.date || a.id || "AAR"}</div>
+            <div>What Happened: ${a.what_happened || a.summary || ""}</div>
+            <div>Lesson Learned: ${a.lesson_learned || a.lesson || ""}</div>
+            <div>Adjustment: ${a.adjustment || a.next_action || ""}</div>
+          </div>
+        `).join("");
+      } catch (err) {
+        document.getElementById("aars").innerHTML = "<div class='error'>AAR load failed: " + err.message + "</div>";
+      }
     }
 
     async function loadAll() {
-      await loadDashboard();
-      await loadMissions();
+      try {
+        await loadDashboard();
+        await loadMissions();
+        await loadAARs();
+        showStatus("Dashboard refreshed.");
+      } catch (err) {
+        showStatus("Refresh failed: " + err.message, false);
+      }
     }
 
     loadAll();
   </script>
 </body>
 </html>
-    """
+"""
+    return _Sprint02HTMLResponse(content=html)
+
+@app.get("/api/missions")
+async def sprint03_list_missions() -> Dict[str, Any]:
+    """Local UI compatibility endpoint for listing Sprint 01 missions."""
+    return {"missions": list(_sprint01_missions.values())}
+
+
+@app.post("/api/missions")
+async def sprint03_create_mission(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Local UI compatibility endpoint for creating Sprint 01 missions."""
+    return await sprint01_create_mission(payload)
+
+
+@app.patch("/api/missions/{mission_id}")
+async def sprint03_update_mission(mission_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Local UI compatibility endpoint for updating Sprint 01 missions."""
+    return await sprint01_update_mission(mission_id, payload)
