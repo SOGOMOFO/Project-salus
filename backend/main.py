@@ -2619,3 +2619,315 @@ async def sprint10_integrated_command_dashboard() -> _Sprint10HTMLResponse:
     </html>
     """
     return _Sprint10HTMLResponse(content=html)
+
+
+
+# --- Sprint 11 Operational Dashboard Controls ---
+from fastapi.responses import HTMLResponse as _Sprint11HTMLResponse
+
+
+@app.get("/command/ops", response_class=_Sprint11HTMLResponse)
+async def sprint11_operational_dashboard() -> _Sprint11HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Operational Dashboard</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          input, textarea, select {
+            width: 100%;
+            box-sizing: border-box;
+            margin: 6px 0 12px 0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            background: #081525;
+            color: #f4f7fb;
+          }
+          button, a.button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 4px 4px 4px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 360px;
+            overflow: auto;
+          }
+          .muted {
+            color: #aab7c7;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Operational Dashboard</h1>
+        <p class="muted">Daily command controls for missions, school, and communication training.</p>
+
+        <div class="panel">
+          <h2>Integrated Command State</h2>
+          <button onclick="refreshState()">Refresh State</button>
+          <a class="button" href="/command/integrated">View Integrated Dashboard</a>
+          <a class="button" href="/command/daily">View Daily Mode</a>
+          <pre id="state">Ready.</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Daily Brief</h2>
+            <input id="brief_intent" placeholder="Commander intent" value="Execute today's highest-leverage missions.">
+            <textarea id="brief_priorities" placeholder="Top priorities, one per line"></textarea>
+            <textarea id="brief_risks" placeholder="Risks, one per line"></textarea>
+            <textarea id="brief_actions" placeholder="Next actions, one per line"></textarea>
+            <button onclick="createDailyBrief()">Create Daily Brief</button>
+          </div>
+
+          <div class="panel">
+            <h2>Mission</h2>
+            <input id="mission_title" placeholder="Mission title">
+            <textarea id="mission_intent" placeholder="Mission intent"></textarea>
+            <select id="mission_priority">
+              <option>high</option>
+              <option>medium</option>
+              <option>low</option>
+            </select>
+            <select id="mission_status">
+              <option>planned</option>
+              <option>in_progress</option>
+              <option>blocked</option>
+              <option>completed</option>
+            </select>
+            <input id="mission_next_action" placeholder="Next action">
+            <button onclick="createMission()">Create Mission</button>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Course</h2>
+            <input id="course_name" placeholder="Course name" value="Practical Applications of Prompt">
+            <input id="course_code" placeholder="Course code" value="Prompt-OA">
+            <select id="course_priority">
+              <option>high</option>
+              <option>medium</option>
+              <option>low</option>
+            </select>
+            <input id="course_task" placeholder="Current task" value="OA retake preparation">
+            <input id="course_next" placeholder="Next action" value="Run one-question quiz drills">
+            <button onclick="createCourse()">Add Course</button>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Study Session</h2>
+            <input id="study_course" placeholder="Course" value="Practical Applications of Prompt">
+            <input id="study_objective" placeholder="Objective">
+            <input id="study_minutes" placeholder="Duration minutes" value="45">
+            <textarea id="study_notes" placeholder="Notes"></textarea>
+            <input id="study_confidence_before" placeholder="Confidence before 0-10" value="4">
+            <input id="study_confidence_after" placeholder="Confidence after 0-10" value="6">
+            <input id="study_next" placeholder="Next action">
+            <button onclick="logStudySession()">Log Study Session</button>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma Self-Assessment</h2>
+            <input id="charisma_context" placeholder="Context" value="General communication">
+            <input id="presence" placeholder="Presence 0-10" value="7">
+            <input id="clarity" placeholder="Clarity 0-10" value="7">
+            <input id="listening" placeholder="Listening 0-10" value="6">
+            <input id="emotional_control" placeholder="Emotional control 0-10" value="7">
+            <input id="confidence" placeholder="Confidence 0-10" value="7">
+            <input id="empathy" placeholder="Empathy 0-10" value="6">
+            <input id="framing" placeholder="Framing 0-10" value="6">
+            <input id="trust_building" placeholder="Trust building 0-10" value="6">
+            <input id="ethical_alignment" placeholder="Ethical alignment 0-10" value="10">
+            <button onclick="createCharismaAssessment()">Save Self-Assessment</button>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma Conversation AAR</h2>
+            <input id="aar_objective" placeholder="Conversation objective">
+            <input id="aar_audience" placeholder="Audience">
+            <textarea id="aar_said" placeholder="What I said"></textarea>
+            <textarea id="aar_response" placeholder="How they responded"></textarea>
+            <input id="aar_listen" placeholder="Did I listen well?">
+            <input id="aar_calm" placeholder="Did I stay calm?">
+            <input id="aar_trust" placeholder="Did I build trust?">
+            <input id="aar_improve" placeholder="What to improve next time">
+            <button onclick="logConversationAAR()">Log Conversation AAR</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Last Action Result</h2>
+          <pre id="result">No action yet.</pre>
+        </div>
+
+        <script>
+          async function api(path, options = {}) {
+            const res = await fetch(path, {
+              headers: { "Content-Type": "application/json" },
+              ...options
+            });
+            return await res.json();
+          }
+
+          function value(id) {
+            return document.getElementById(id).value;
+          }
+
+          function intValue(id) {
+            const parsed = parseInt(value(id), 10);
+            return Number.isNaN(parsed) ? 0 : parsed;
+          }
+
+          function lines(id) {
+            return value(id).split("\\n").map(x => x.trim()).filter(Boolean);
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function refreshState() {
+            show("state", await api("/api/command/integrated-state"));
+          }
+
+          async function afterAction(data) {
+            show("result", data);
+            await refreshState();
+          }
+
+          async function createDailyBrief() {
+            await afterAction(await api("/api/daily-use/brief", {
+              method: "POST",
+              body: JSON.stringify({
+                commander_intent: value("brief_intent"),
+                top_priorities: lines("brief_priorities"),
+                risks: lines("brief_risks"),
+                next_actions: lines("brief_actions")
+              })
+            }));
+          }
+
+          async function createMission() {
+            await afterAction(await api("/missions", {
+              method: "POST",
+              body: JSON.stringify({
+                title: value("mission_title"),
+                intent: value("mission_intent"),
+                priority: value("mission_priority"),
+                status: value("mission_status"),
+                risk: "not_assessed",
+                next_action: value("mission_next_action")
+              })
+            }));
+          }
+
+          async function createCourse() {
+            await afterAction(await api("/api/schoolhouse/course", {
+              method: "POST",
+              body: JSON.stringify({
+                name: value("course_name"),
+                code: value("course_code"),
+                school: "WGU",
+                priority: value("course_priority"),
+                current_task: value("course_task"),
+                next_action: value("course_next")
+              })
+            }));
+          }
+
+          async function logStudySession() {
+            await afterAction(await api("/api/schoolhouse/study-session", {
+              method: "POST",
+              body: JSON.stringify({
+                course: value("study_course"),
+                objective: value("study_objective"),
+                duration_minutes: intValue("study_minutes"),
+                notes: value("study_notes"),
+                confidence_before: intValue("study_confidence_before"),
+                confidence_after: intValue("study_confidence_after"),
+                next_action: value("study_next"),
+                blockers: []
+              })
+            }));
+          }
+
+          function charismaScorecard() {
+            return {
+              presence: intValue("presence"),
+              clarity: intValue("clarity"),
+              listening: intValue("listening"),
+              emotional_control: intValue("emotional_control"),
+              confidence: intValue("confidence"),
+              empathy: intValue("empathy"),
+              framing: intValue("framing"),
+              trust_building: intValue("trust_building"),
+              ethical_alignment: intValue("ethical_alignment")
+            };
+          }
+
+          async function createCharismaAssessment() {
+            await afterAction(await api("/api/skills/charisma/self-assessment", {
+              method: "POST",
+              body: JSON.stringify({
+                context: value("charisma_context"),
+                ...charismaScorecard()
+              })
+            }));
+          }
+
+          async function logConversationAAR() {
+            await afterAction(await api("/api/skills/charisma/conversation-aar", {
+              method: "POST",
+              body: JSON.stringify({
+                objective: value("aar_objective"),
+                audience: value("aar_audience"),
+                what_i_said: value("aar_said"),
+                how_they_responded: value("aar_response"),
+                did_i_listen_well: value("aar_listen"),
+                did_i_stay_calm: value("aar_calm"),
+                did_i_build_trust: value("aar_trust"),
+                what_to_improve: value("aar_improve"),
+                scorecard: charismaScorecard()
+              })
+            }));
+          }
+
+          refreshState();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint11HTMLResponse(content=html)
