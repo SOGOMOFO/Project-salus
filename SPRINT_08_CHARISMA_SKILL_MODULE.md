@@ -10,6 +10,12 @@ Charisma is the ability to communicate with presence, clarity, confidence, emoti
 Charisma in Project Salus is not manipulation.
 It is ethical influence, leadership communication, active listening, emotional intelligence, and social calibration.
 
+## Directorate Alignment
+- Human Capability Development Directorate
+- Influence & Human Behavior Intelligence Agent
+- Leadership Development
+- Communication Training
+
 ## Skill Stack
 - Presence
 - Voice
@@ -26,7 +32,7 @@ It is ethical influence, leadership communication, active listening, emotional i
 - Charisma skill model
 - Self-assessment endpoint
 - Daily charisma drill endpoint
-- Conversation AAR structure
+- Conversation AAR endpoint
 - Communication scorecard
 - Basic tests
 
