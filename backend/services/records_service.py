@@ -1,26 +1,433 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from fastapi import Request
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
-from backend.services.legacy_source_executor import invoke_legacy_source
+
+class Sprint16RecordMutationRequest(BaseModel):
+    group: str
+    id: str
+    confirmation: str | None = None
 
 
-RECORDS_LEGACY_SOURCE = '# Sprint 26 Legacy Handler Bridge — Record Management\nfrom fastapi.responses import HTMLResponse as _Sprint16HTMLResponse\nfrom fastapi import HTTPException as _Sprint16HTTPException\n\n\ndef _sprint16_record_groups() -> Dict[str, Any]:\n    return {\n        "missions": globals().get("_sprint01_missions", {}),\n        "daily_briefs": globals().get("_sprint01_daily_briefs", []),\n        "aars": globals().get("_sprint04_aars", []),\n        "schoolhouse_courses": globals().get("_schoolhouse_courses", []),\n        "schoolhouse_study_sessions": globals().get("_schoolhouse_study_sessions", []),\n        "schoolhouse_wrong_answer_reviews": globals().get("_schoolhouse_wrong_answer_reviews", []),\n        "schoolhouse_writing_tasks": globals().get("_schoolhouse_writing_tasks", []),\n        "charisma_self_assessments": globals().get("_charisma_self_assessments", []),\n        "charisma_conversation_aars": globals().get("_charisma_conversation_aars", []),\n    }\n\n\ndef _sprint16_records_as_list(group: str) -> list:\n    groups = _sprint16_record_groups()\n    if group not in groups:\n        raise _Sprint16HTTPException(status_code=404, detail=f"Unknown record group: {group}")\n\n    records = groups[group]\n\n    if isinstance(records, dict):\n        return list(records.values())\n\n    if isinstance(records, list):\n        return records\n\n    return []\n\n\ndef _sprint16_find_record(group: str, record_id: str):\n    groups = _sprint16_record_groups()\n    if group not in groups:\n        raise _Sprint16HTTPException(status_code=404, detail=f"Unknown record group: {group}")\n\n    records = groups[group]\n\n    if isinstance(records, dict):\n        if record_id in records:\n            return records, record_id, records[record_id]\n\n        for key, value in records.items():\n            if isinstance(value, dict) and str(value.get("id")) == str(record_id):\n                return records, key, value\n\n    if isinstance(records, list):\n        for index, value in enumerate(records):\n            if isinstance(value, dict) and str(value.get("id")) == str(record_id):\n                return records, index, value\n\n    raise _Sprint16HTTPException(status_code=404, detail=f"Record not found: {record_id}")\n\n\ndef _sprint16_save_group(group: str) -> None:\n    save_json = globals().get("_sprint01_save_json")\n\n    try:\n        if group == "daily_briefs" and save_json:\n            save_json("sprint01_daily_briefs.json", globals().get("_sprint01_daily_briefs", []))\n        elif group == "missions" and save_json:\n            save_json("sprint01_missions.json", globals().get("_sprint01_missions", {}))\n        elif group == "aars" and save_json:\n            filename = globals().get("_SPRINT01_AARS_FILE", "sprint04_aars.json")\n            save_json(filename, globals().get("_sprint04_aars", []))\n        elif group.startswith("schoolhouse") or group.startswith("charisma"):\n            saver = globals().get("_sprint12_save_capability_data")\n            if saver:\n                saver()\n    except Exception:\n        pass\n\n\n# @app.get("/api/command/records")\nasync def sprint16_record_management_state() -> Dict[str, Any]:\n    groups = _sprint16_record_groups()\n    counts = {}\n    archived_counts = {}\n\n    for group_name in groups:\n        records = _sprint16_records_as_list(group_name)\n        counts[group_name] = len(records)\n        archived_counts[group_name] = len([\n            item for item in records\n            if isinstance(item, dict) and item.get("archived") is True\n        ])\n\n    return {\n        "status": "ok",\n        "module": "record_management_controls",\n        "groups": list(groups.keys()),\n        "counts": counts,\n        "archived_counts": archived_counts,\n        "data": {\n            group_name: _sprint16_records_as_list(group_name)\n            for group_name in groups\n        },\n        "actions": [\n            "archive",\n            "delete",\n        ],\n        "warning": "Delete removes records from local runtime/persistent JSON where supported. Archive is safer for real records.",\n    }\n\n\n# @app.post("/api/command/records/archive")\nasync def sprint16_archive_record(payload: Dict[str, Any]) -> Dict[str, Any]:\n    group = payload.get("group")\n    record_id = payload.get("id")\n\n    if not group or not record_id:\n        raise _Sprint16HTTPException(status_code=400, detail="group and id are required")\n\n    records, key, record = _sprint16_find_record(group, record_id)\n\n    if not isinstance(record, dict):\n        raise _Sprint16HTTPException(status_code=400, detail="record is not archiveable")\n\n    record["archived"] = True\n    record["archived_at"] = _sprint01_now() if "_sprint01_now" in globals() else datetime.now(timezone.utc).isoformat()\n\n    if "status" in record:\n        record["previous_status"] = record.get("status")\n        record["status"] = "archived"\n\n    _sprint16_save_group(group)\n\n    return {\n        "status": "ok",\n        "action": "archive",\n        "group": group,\n        "id": record_id,\n        "record": record,\n    }\n\n\n# @app.post("/api/command/records/delete")\nasync def sprint16_delete_record(payload: Dict[str, Any]) -> Dict[str, Any]:\n    group = payload.get("group")\n    record_id = payload.get("id")\n    confirmation = payload.get("confirmation", "")\n\n    if not group or not record_id:\n        raise _Sprint16HTTPException(status_code=400, detail="group and id are required")\n\n    if confirmation != "DELETE_PROJECT_SALUS_RECORD":\n        raise _Sprint16HTTPException(status_code=400, detail="confirmation phrase required")\n\n    records, key, record = _sprint16_find_record(group, record_id)\n\n    if isinstance(records, dict):\n        deleted = records.pop(key)\n    elif isinstance(records, list):\n        deleted = records.pop(key)\n    else:\n        raise _Sprint16HTTPException(status_code=400, detail="record group is not deleteable")\n\n    _sprint16_save_group(group)\n\n    return {\n        "status": "ok",\n        "action": "delete",\n        "group": group,\n        "id": record_id,\n        "deleted": deleted,\n    }\n\n\n# @app.get("/command/records", response_class=_Sprint16HTMLResponse)\nasync def sprint16_record_management_page() -> _Sprint16HTMLResponse:\n    html = """\n    <!doctype html>\n    <html>\n      <head>\n        <title>Project Salus — Record Management</title>\n        <style>\n          body {\n            font-family: Arial, sans-serif;\n            background: #07111f;\n            color: #f4f7fb;\n            margin: 0;\n            padding: 32px;\n          }\n          h1, h2 {\n            color: #d7b46a;\n          }\n          .grid {\n            display: grid;\n            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));\n            gap: 18px;\n          }\n          .panel {\n            border: 1px solid #28405f;\n            border-radius: 12px;\n            padding: 20px;\n            background: #0d1c2f;\n            margin-bottom: 18px;\n          }\n          input, select {\n            width: 100%;\n            box-sizing: border-box;\n            margin: 6px 0 12px 0;\n            padding: 10px;\n            border-radius: 8px;\n            border: 1px solid #28405f;\n            background: #081525;\n            color: #f4f7fb;\n          }\n          button, a.button {\n            display: inline-block;\n            background: #d7b46a;\n            color: #07111f;\n            border: none;\n            padding: 11px 15px;\n            border-radius: 8px;\n            cursor: pointer;\n            font-weight: bold;\n            text-decoration: none;\n            margin: 5px 5px 5px 0;\n          }\n          button.danger {\n            background: #d66;\n            color: #111;\n          }\n          pre {\n            white-space: pre-wrap;\n            background: #081525;\n            padding: 14px;\n            border-radius: 8px;\n            border: 1px solid #28405f;\n            max-height: 420px;\n            overflow: auto;\n          }\n          .muted {\n            color: #aab7c7;\n          }\n        </style>\n      </head>\n      <body>\n        <h1>Project Salus — Record Management</h1>\n        <p class="muted">Archive or delete selected records. Archive is safer for real records.</p>\n\n        <div class="panel">\n          <h2>Navigation</h2>\n          <a class="button" href="/command/daily-driver">Daily Driver</a>\n          <a class="button" href="/command/ops">Ops Dashboard</a>\n          <a class="button" href="/command/review">Review Dashboard</a>\n          <button onclick="refreshRecords()">Refresh Records</button>\n        </div>\n\n        <div class="grid">\n          <div class="panel">\n            <h2>Archive Record</h2>\n            <select id="archive_group">\n              <option>missions</option>\n              <option>daily_briefs</option>\n              <option>aars</option>\n              <option>schoolhouse_courses</option>\n              <option>schoolhouse_study_sessions</option>\n              <option>schoolhouse_wrong_answer_reviews</option>\n              <option>schoolhouse_writing_tasks</option>\n              <option>charisma_self_assessments</option>\n              <option>charisma_conversation_aars</option>\n            </select>\n            <input id="archive_id" placeholder="Record ID">\n            <button onclick="archiveRecord()">Archive Record</button>\n          </div>\n\n          <div class="panel">\n            <h2>Delete Record</h2>\n            <p class="muted">Requires exact confirmation phrase.</p>\n            <select id="delete_group">\n              <option>missions</option>\n              <option>daily_briefs</option>\n              <option>aars</option>\n              <option>schoolhouse_courses</option>\n              <option>schoolhouse_study_sessions</option>\n              <option>schoolhouse_wrong_answer_reviews</option>\n              <option>schoolhouse_writing_tasks</option>\n              <option>charisma_self_assessments</option>\n              <option>charisma_conversation_aars</option>\n            </select>\n            <input id="delete_id" placeholder="Record ID">\n            <input id="delete_confirmation" placeholder="DELETE_PROJECT_SALUS_RECORD">\n            <button class="danger" onclick="deleteRecord()">Delete Record</button>\n          </div>\n        </div>\n\n        <div class="panel">\n          <h2>Last Result</h2>\n          <pre id="result">No action yet.</pre>\n        </div>\n\n        <div class="panel">\n          <h2>Record State</h2>\n          <pre id="records">Loading...</pre>\n        </div>\n\n        <script>\n          async function api(path, options = {}) {\n            const res = await fetch(path, {\n              headers: { "Content-Type": "application/json" },\n              ...options\n            });\n            return await res.json();\n          }\n\n          function value(id) {\n            return document.getElementById(id).value;\n          }\n\n          function show(id, data) {\n            document.getElementById(id).textContent = JSON.stringify(data, null, 2);\n          }\n\n          async function refreshRecords() {\n            show("records", await api("/api/command/records"));\n          }\n\n          async function archiveRecord() {\n            const result = await api("/api/command/records/archive", {\n              method: "POST",\n              body: JSON.stringify({\n                group: value("archive_group"),\n                id: value("archive_id")\n              })\n            });\n            show("result", result);\n            await refreshRecords();\n          }\n\n          async function deleteRecord() {\n            const result = await api("/api/command/records/delete", {\n              method: "POST",\n              body: JSON.stringify({\n                group: value("delete_group"),\n                id: value("delete_id"),\n                confirmation: value("delete_confirmation")\n              })\n            });\n            show("result", result);\n            await refreshRecords();\n          }\n\n          refreshRecords();\n        </script>\n      </body>\n    </html>\n    """\n    return _Sprint16HTMLResponse(content=html)'
+def _build_record_mutation_request(payload: dict[str, Any]) -> Sprint16RecordMutationRequest:
+    data = dict(payload or {})
+
+    # Compatibility with earlier smoke tests that used record_type/record_id.
+    if "group" not in data and "record_type" in data:
+        data["group"] = data["record_type"]
+
+    if "id" not in data and "record_id" in data:
+        data["id"] = data["record_id"]
+
+    return Sprint16RecordMutationRequest(**data)
+
+
+def _normalize_record_mutation_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    data = dict(payload or {})
+
+    # Compatibility with earlier smoke tests that used record_type/record_id.
+    if "group" not in data and "record_type" in data:
+        data["group"] = data["record_type"]
+
+    if "id" not in data and "record_id" in data:
+        data["id"] = data["record_id"]
+
+    # Validate shape when the model exists, then pass a plain dict to legacy logic.
+    if "Sprint16RecordMutationRequest" in globals():
+        validated = Sprint16RecordMutationRequest(**data)
+        return validated.model_dump()
+
+    return data
+
+
+def _sync_legacy_globals() -> None:
+    """Load shared stores/helpers from backend.main without keeping route behavior there."""
+    import backend.main as legacy_main
+
+    for name, value in vars(legacy_main).items():
+        globals().setdefault(name, value)
+
+
+async def _resolve_result(result: Any) -> Any:
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+from fastapi.responses import HTMLResponse as _Sprint16HTMLResponse
+from fastapi import HTTPException as _Sprint16HTTPException
+
+
+def _sprint16_record_groups() -> Dict[str, Any]:
+    return {
+        "missions": globals().get("_sprint01_missions", {}),
+        "daily_briefs": globals().get("_sprint01_daily_briefs", []),
+        "aars": globals().get("_sprint04_aars", []),
+        "schoolhouse_courses": globals().get("_schoolhouse_courses", []),
+        "schoolhouse_study_sessions": globals().get("_schoolhouse_study_sessions", []),
+        "schoolhouse_wrong_answer_reviews": globals().get("_schoolhouse_wrong_answer_reviews", []),
+        "schoolhouse_writing_tasks": globals().get("_schoolhouse_writing_tasks", []),
+        "charisma_self_assessments": globals().get("_charisma_self_assessments", []),
+        "charisma_conversation_aars": globals().get("_charisma_conversation_aars", []),
+    }
+
+
+def _sprint16_records_as_list(group: str) -> list:
+    groups = _sprint16_record_groups()
+    if group not in groups:
+        raise _Sprint16HTTPException(status_code=404, detail=f"Unknown record group: {group}")
+
+    records = groups[group]
+
+    if isinstance(records, dict):
+        return list(records.values())
+
+    if isinstance(records, list):
+        return records
+
+    return []
+
+
+def _sprint16_find_record(group: str, record_id: str):
+    groups = _sprint16_record_groups()
+    if group not in groups:
+        raise _Sprint16HTTPException(status_code=404, detail=f"Unknown record group: {group}")
+
+    records = groups[group]
+
+    if isinstance(records, dict):
+        if record_id in records:
+            return records, record_id, records[record_id]
+
+        for key, value in records.items():
+            if isinstance(value, dict) and str(value.get("id")) == str(record_id):
+                return records, key, value
+
+    if isinstance(records, list):
+        for index, value in enumerate(records):
+            if isinstance(value, dict) and str(value.get("id")) == str(record_id):
+                return records, index, value
+
+    raise _Sprint16HTTPException(status_code=404, detail=f"Record not found: {record_id}")
+
+
+def _sprint16_save_group(group: str) -> None:
+    save_json = globals().get("_sprint01_save_json")
+
+    try:
+        if group == "daily_briefs" and save_json:
+            save_json("sprint01_daily_briefs.json", globals().get("_sprint01_daily_briefs", []))
+        elif group == "missions" and save_json:
+            save_json("sprint01_missions.json", globals().get("_sprint01_missions", {}))
+        elif group == "aars" and save_json:
+            filename = globals().get("_SPRINT01_AARS_FILE", "sprint04_aars.json")
+            save_json(filename, globals().get("_sprint04_aars", []))
+        elif group.startswith("schoolhouse") or group.startswith("charisma"):
+            saver = globals().get("_sprint12_save_capability_data")
+            if saver:
+                saver()
+    except Exception:
+        pass
+
+
+async def sprint16_record_management_state() -> Dict[str, Any]:
+    groups = _sprint16_record_groups()
+    counts = {}
+    archived_counts = {}
+
+    for group_name in groups:
+        records = _sprint16_records_as_list(group_name)
+        counts[group_name] = len(records)
+        archived_counts[group_name] = len([
+            item for item in records
+            if isinstance(item, dict) and item.get("archived") is True
+        ])
+
+    return {
+        "status": "ok",
+        "module": "record_management_controls",
+        "groups": list(groups.keys()),
+        "counts": counts,
+        "archived_counts": archived_counts,
+        "data": {
+            group_name: _sprint16_records_as_list(group_name)
+            for group_name in groups
+        },
+        "actions": [
+            "archive",
+            "delete",
+        ],
+        "warning": "Delete removes records from local runtime/persistent JSON where supported. Archive is safer for real records.",
+    }
+
+
+async def sprint16_archive_record(payload: Dict[str, Any]) -> Dict[str, Any]:
+    group = payload.get("group")
+    record_id = payload.get("id")
+
+    if not group or not record_id:
+        raise _Sprint16HTTPException(status_code=400, detail="group and id are required")
+
+    records, key, record = _sprint16_find_record(group, record_id)
+
+    if not isinstance(record, dict):
+        raise _Sprint16HTTPException(status_code=400, detail="record is not archiveable")
+
+    record["archived"] = True
+    record["archived_at"] = _sprint01_now() if "_sprint01_now" in globals() else datetime.now(timezone.utc).isoformat()
+
+    if "status" in record:
+        record["previous_status"] = record.get("status")
+        record["status"] = "archived"
+
+    _sprint16_save_group(group)
+
+    return {
+        "status": "ok",
+        "action": "archive",
+        "group": group,
+        "id": record_id,
+        "record": record,
+    }
+
+
+async def sprint16_delete_record(payload: Dict[str, Any]) -> Dict[str, Any]:
+    group = payload.get("group")
+    record_id = payload.get("id")
+    confirmation = payload.get("confirmation", "")
+
+    if not group or not record_id:
+        raise _Sprint16HTTPException(status_code=400, detail="group and id are required")
+
+    if confirmation != "DELETE_PROJECT_SALUS_RECORD":
+        raise _Sprint16HTTPException(status_code=400, detail="confirmation phrase required")
+
+    records, key, record = _sprint16_find_record(group, record_id)
+
+    if isinstance(records, dict):
+        deleted = records.pop(key)
+    elif isinstance(records, list):
+        deleted = records.pop(key)
+    else:
+        raise _Sprint16HTTPException(status_code=400, detail="record group is not deleteable")
+
+    _sprint16_save_group(group)
+
+    return {
+        "status": "ok",
+        "action": "delete",
+        "group": group,
+        "id": record_id,
+        "deleted": deleted,
+    }
+
+
+async def sprint16_record_management_page() -> _Sprint16HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Record Management</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          input, select {
+            width: 100%;
+            box-sizing: border-box;
+            margin: 6px 0 12px 0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            background: #081525;
+            color: #f4f7fb;
+          }
+          button, a.button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }
+          button.danger {
+            background: #d66;
+            color: #111;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .muted {
+            color: #aab7c7;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Record Management</h1>
+        <p class="muted">Archive or delete selected records. Archive is safer for real records.</p>
+
+        <div class="panel">
+          <h2>Navigation</h2>
+          <a class="button" href="/command/daily-driver">Daily Driver</a>
+          <a class="button" href="/command/ops">Ops Dashboard</a>
+          <a class="button" href="/command/review">Review Dashboard</a>
+          <button onclick="refreshRecords()">Refresh Records</button>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Archive Record</h2>
+            <select id="archive_group">
+              <option>missions</option>
+              <option>daily_briefs</option>
+              <option>aars</option>
+              <option>schoolhouse_courses</option>
+              <option>schoolhouse_study_sessions</option>
+              <option>schoolhouse_wrong_answer_reviews</option>
+              <option>schoolhouse_writing_tasks</option>
+              <option>charisma_self_assessments</option>
+              <option>charisma_conversation_aars</option>
+            </select>
+            <input id="archive_id" placeholder="Record ID">
+            <button onclick="archiveRecord()">Archive Record</button>
+          </div>
+
+          <div class="panel">
+            <h2>Delete Record</h2>
+            <p class="muted">Requires exact confirmation phrase.</p>
+            <select id="delete_group">
+              <option>missions</option>
+              <option>daily_briefs</option>
+              <option>aars</option>
+              <option>schoolhouse_courses</option>
+              <option>schoolhouse_study_sessions</option>
+              <option>schoolhouse_wrong_answer_reviews</option>
+              <option>schoolhouse_writing_tasks</option>
+              <option>charisma_self_assessments</option>
+              <option>charisma_conversation_aars</option>
+            </select>
+            <input id="delete_id" placeholder="Record ID">
+            <input id="delete_confirmation" placeholder="DELETE_PROJECT_SALUS_RECORD">
+            <button class="danger" onclick="deleteRecord()">Delete Record</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Last Result</h2>
+          <pre id="result">No action yet.</pre>
+        </div>
+
+        <div class="panel">
+          <h2>Record State</h2>
+          <pre id="records">Loading...</pre>
+        </div>
+
+        <script>
+          async function api(path, options = {}) {
+            const res = await fetch(path, {
+              headers: { "Content-Type": "application/json" },
+              ...options
+            });
+            return await res.json();
+          }
+
+          function value(id) {
+            return document.getElementById(id).value;
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function refreshRecords() {
+            show("records", await api("/api/command/records"));
+          }
+
+          async function archiveRecord() {
+            const result = await api("/api/command/records/archive", {
+              method: "POST",
+              body: JSON.stringify({
+                group: value("archive_group"),
+                id: value("archive_id")
+              })
+            });
+            show("result", result);
+            await refreshRecords();
+          }
+
+          async function deleteRecord() {
+            const result = await api("/api/command/records/delete", {
+              method: "POST",
+              body: JSON.stringify({
+                group: value("delete_group"),
+                id: value("delete_id"),
+                confirmation: value("delete_confirmation")
+              })
+            });
+            show("result", result);
+            await refreshRecords();
+          }
+
+          refreshRecords();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint16HTMLResponse(content=html)
+
 
 
 async def get_records_state() -> Any:
-    return await invoke_legacy_source(RECORDS_LEGACY_SOURCE, "sprint16_record_management_state")
+    _sync_legacy_globals()
+    return await _resolve_result(sprint16_record_management_state())
 
 
 async def archive_record(request: Request) -> Any:
-    return await invoke_legacy_source(RECORDS_LEGACY_SOURCE, "sprint16_archive_record", request)
+    _sync_legacy_globals()
+    payload = _normalize_record_mutation_payload(await request.json())
+    return await _resolve_result(sprint16_archive_record(payload))
 
 
 async def delete_record(request: Request) -> Any:
-    return await invoke_legacy_source(RECORDS_LEGACY_SOURCE, "sprint16_delete_record", request)
+    _sync_legacy_globals()
+    payload = _normalize_record_mutation_payload(await request.json())
+    return await _resolve_result(sprint16_delete_record(payload))
 
 
 async def get_records_page() -> Any:
-    return await invoke_legacy_source(RECORDS_LEGACY_SOURCE, "sprint16_record_management_page")
+    _sync_legacy_globals()
+    return await _resolve_result(sprint16_record_management_page())

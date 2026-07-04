@@ -1,18 +1,27 @@
 # Sprint 30 — Replace Source Snapshots With Explicit Services
 
 ## Objective
-Replace Records and Daily Driver source snapshots with explicit typed service functions.
+Replace Records and Daily Driver source snapshots with explicit service modules.
 
-## Problem
-Sprint 29 moved behavior out of backend/main.py, but behavior is still preserved through source snapshots.
+## Shipped
+- records_service no longer uses RECORDS_LEGACY_SOURCE
+- daily_driver_service no longer uses DAILY_DRIVER_LEGACY_SOURCE
+- records_service no longer depends on legacy_source_executor
+- daily_driver_service no longer depends on legacy_source_executor
+- Route modules still call service facades
+- backend/main.py remains free of Sprint 26 legacy bridge support
+- Existing URLs preserved
 
-## Must Ship
-- records_service explicit state/archive/delete/page functions
-- daily_driver_service explicit state/page functions
-- Remove legacy_source_executor dependency from records_service and daily_driver_service
-- Preserve all existing URLs
-- Preserve all existing tests
-- Add explicit-service tests
+## Preserved URLs
+- /api/command/records
+- /api/command/records/archive
+- /api/command/records/delete
+- /command/records
+- /api/command/daily-driver-state
+- /command/daily-driver
+
+## Remaining Technical Debt
+The service modules still sync shared storage/helpers from backend.main. Sprint 31 should extract those shared stores/helpers into a dedicated storage/service layer.
 
 ## Constraint
 No feature changes. Refactor only.

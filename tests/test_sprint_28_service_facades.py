@@ -50,10 +50,16 @@ def test_sprint_28_service_facades_have_moved_beyond_direct_adapter_calls():
 
     assert "call_main_handler" not in records_service_text
     assert "call_main_handler" not in daily_service_text
-    assert "invoke_legacy_source" in records_service_text
-    assert "invoke_legacy_source" in daily_service_text
     assert "sprint16_record_management_state" in records_service_text
     assert "sprint15_daily_driver_state" in daily_service_text
+
+    sprint_30_plan_exists = Path("SPRINT_30_REPLACE_SOURCE_SNAPSHOTS_WITH_EXPLICIT_SERVICES.md").exists()
+    if sprint_30_plan_exists:
+        assert "invoke_legacy_source" not in records_service_text
+        assert "invoke_legacy_source" not in daily_service_text
+    else:
+        assert "invoke_legacy_source" in records_service_text
+        assert "invoke_legacy_source" in daily_service_text
 
 
 def test_sprint_28_future_import_first():

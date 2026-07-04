@@ -50,16 +50,22 @@ def test_sprint_29_main_no_longer_contains_legacy_handler_bridge():
     assert "sprint15_daily_driver_state" not in text
 
 
-def test_sprint_29_services_own_behavior_source_snapshots():
+def test_sprint_29_services_own_behavior_after_snapshot_removal():
     records_text = Path("backend/services/records_service.py").read_text()
     daily_text = Path("backend/services/daily_driver_service.py").read_text()
 
-    assert "RECORDS_LEGACY_SOURCE" in records_text
-    assert "DAILY_DRIVER_LEGACY_SOURCE" in daily_text
     assert "sprint16_record_management_state" in records_text
     assert "sprint15_daily_driver_state" in daily_text
     assert "call_main_handler" not in records_text
     assert "call_main_handler" not in daily_text
+
+    sprint_30_plan_exists = Path("SPRINT_30_REPLACE_SOURCE_SNAPSHOTS_WITH_EXPLICIT_SERVICES.md").exists()
+    if sprint_30_plan_exists:
+        assert "RECORDS_LEGACY_SOURCE" not in records_text
+        assert "DAILY_DRIVER_LEGACY_SOURCE" not in daily_text
+    else:
+        assert "RECORDS_LEGACY_SOURCE" in records_text
+        assert "DAILY_DRIVER_LEGACY_SOURCE" in daily_text
 
 
 def test_sprint_29_route_modules_call_service_facades():
