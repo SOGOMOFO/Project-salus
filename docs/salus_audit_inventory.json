@@ -1,0 +1,460 @@
+{
+  "status": "ok",
+  "module": "local_mvp_hardening_audit",
+  "source": "backend/main.py",
+  "metrics": {
+    "path": "backend/main.py",
+    "line_count": 5269,
+    "character_count": 173323,
+    "sprint_marker_count": 21,
+    "route_count": 84
+  },
+  "sprint_markers": [
+    "--- Sprint 01 Core Loop compatibility endpoints ---",
+    "--- Sprint 04 Local JSON Persistence ---",
+    "--- Sprint 02 Commander UI ---",
+    "--- Sprint 04 Persistent AAR Override ---",
+    "--- Sprint 05 Mission/Data Contract compatibility endpoints ---",
+    "--- Sprint compatibility JSON helpers ---",
+    "--- Sprint 05 route priority fix ---",
+    "--- Sprint 06 Data Hygiene and Reset Controls ---",
+    "--- Sprint 07 Real Daily Use Mode ---",
+    "--- Sprint 08 Schoolhouse Learning Coach Module ---",
+    "--- Sprint 09 Charisma and Communication Skill Module ---",
+    "--- Sprint 10 Command Dashboard Integration ---",
+    "--- Sprint 11 Operational Dashboard Controls ---",
+    "--- Sprint 13 Operational Review and History Dashboard ---",
+    "--- Sprint 14 Command Launcher and Navigation System ---",
+    "--- Sprint 15 Daily Driver Polish ---",
+    "--- Sprint 16 Record Management Controls ---",
+    "--- Sprint 17 Daily Workflow Automation ---",
+    "--- Sprint 18 Navigation Unification and UX Cleanup ---",
+    "--- Sprint 19 System Status and Readiness Scoring ---",
+    "--- Sprint 20 Dashboard Index and Final Local MVP Checkpoint ---"
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "home"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "sprint14_home_page"
+    },
+    {
+      "method": "GET",
+      "path": "/agents",
+      "handler": "agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aar",
+      "handler": "api_list_aars"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aar",
+      "handler": "sprint04_list_aars"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aar",
+      "handler": "api_create_aar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aar",
+      "handler": "sprint04_create_aar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aar/{aar_id}",
+      "handler": "api_get_aar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aar/{aar_id}",
+      "handler": "sprint04_get_aar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/daily-driver-state",
+      "handler": "sprint15_daily_driver_state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/dashboard-index",
+      "handler": "sprint20_dashboard_index"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/health",
+      "handler": "sprint14_command_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/integrated-state",
+      "handler": "sprint10_integrated_command_state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/navigation",
+      "handler": "sprint18_command_navigation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/readiness",
+      "handler": "sprint19_readiness"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/records",
+      "handler": "sprint16_record_management_state"
+    },
+    {
+      "method": "POST",
+      "path": "/api/command/records/archive",
+      "handler": "sprint16_archive_record"
+    },
+    {
+      "method": "POST",
+      "path": "/api/command/records/delete",
+      "handler": "sprint16_delete_record"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/review-state",
+      "handler": "sprint13_review_state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/commander/brief",
+      "handler": "api_commander_brief"
+    },
+    {
+      "method": "GET",
+      "path": "/api/commander/next-action",
+      "handler": "api_commander_next_action"
+    },
+    {
+      "method": "GET",
+      "path": "/api/commander/today",
+      "handler": "api_commander_today"
+    },
+    {
+      "method": "GET",
+      "path": "/api/core/missions",
+      "handler": "sprint02_list_core_missions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/daily-brief",
+      "handler": "sprint01_get_daily_brief"
+    },
+    {
+      "method": "POST",
+      "path": "/api/daily-brief",
+      "handler": "sprint01_create_daily_brief"
+    },
+    {
+      "method": "POST",
+      "path": "/api/daily-use/aar",
+      "handler": "sprint07_create_daily_use_aar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/daily-use/brief",
+      "handler": "sprint07_create_daily_use_brief"
+    },
+    {
+      "method": "GET",
+      "path": "/api/daily-use/state",
+      "handler": "sprint07_daily_use_state"
+    },
+    {
+      "method": "POST",
+      "path": "/api/daily/closeout",
+      "handler": "api_daily_closeout"
+    },
+    {
+      "method": "GET",
+      "path": "/api/daily/history",
+      "handler": "api_daily_history"
+    },
+    {
+      "method": "POST",
+      "path": "/api/daily/start",
+      "handler": "api_daily_start"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard",
+      "handler": "sprint01_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/daily",
+      "handler": "api_dashboard_daily"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/health",
+      "handler": "api_dashboard_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/missions",
+      "handler": "api_dashboard_missions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/summary",
+      "handler": "api_dashboard_summary"
+    },
+    {
+      "method": "POST",
+      "path": "/api/dev/reset",
+      "handler": "sprint06_dev_reset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/judgment",
+      "handler": "create_judgment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/missions",
+      "handler": "sprint03_list_missions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/missions",
+      "handler": "sprint05_list_missions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/missions",
+      "handler": "sprint03_create_mission"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/missions/{mission_id}",
+      "handler": "sprint03_update_mission"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mvp/status",
+      "handler": "api_mvp_status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/schoolhouse/course",
+      "handler": "schoolhouse_create_course"
+    },
+    {
+      "method": "GET",
+      "path": "/api/schoolhouse/courses",
+      "handler": "schoolhouse_list_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/schoolhouse/daily-brief",
+      "handler": "schoolhouse_daily_brief"
+    },
+    {
+      "method": "POST",
+      "path": "/api/schoolhouse/quiz",
+      "handler": "schoolhouse_quiz"
+    },
+    {
+      "method": "GET",
+      "path": "/api/schoolhouse/status",
+      "handler": "schoolhouse_status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/schoolhouse/study-session",
+      "handler": "schoolhouse_study_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/schoolhouse/writing-task",
+      "handler": "schoolhouse_writing_task"
+    },
+    {
+      "method": "POST",
+      "path": "/api/schoolhouse/wrong-answer-review",
+      "handler": "schoolhouse_wrong_answer_review"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sitrep",
+      "handler": "api_list_sitreps"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sitrep",
+      "handler": "api_create_sitrep"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sitrep/{sitrep_id}",
+      "handler": "api_get_sitrep"
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/charisma",
+      "handler": "charisma_status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/charisma/conversation-aar",
+      "handler": "charisma_conversation_aar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/charisma/daily-drill",
+      "handler": "charisma_daily_drill"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/charisma/self-assessment",
+      "handler": "charisma_self_assessment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workflows/evening",
+      "handler": "sprint17_evening_workflow"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workflows/morning",
+      "handler": "sprint17_morning_workflow"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workflows/today",
+      "handler": "sprint17_today_workflows"
+    },
+    {
+      "method": "POST",
+      "path": "/auth",
+      "handler": "auth"
+    },
+    {
+      "method": "GET",
+      "path": "/command",
+      "handler": "sprint03_command_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/daily",
+      "handler": "sprint07_daily_command_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/daily-driver",
+      "handler": "sprint15_daily_driver_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/dashboard-index",
+      "handler": "sprint20_dashboard_index_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/home",
+      "handler": "sprint14_command_home_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/integrated",
+      "handler": "sprint10_integrated_command_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/command/navigation",
+      "handler": "sprint18_navigation_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/ops",
+      "handler": "sprint11_operational_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/command/readiness",
+      "handler": "sprint19_readiness_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/records",
+      "handler": "sprint16_record_management_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/review",
+      "handler": "sprint13_review_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/command/workflows",
+      "handler": "sprint17_workflows_page"
+    },
+    {
+      "method": "GET",
+      "path": "/core/memory/status",
+      "handler": "core_memory_status"
+    },
+    {
+      "method": "GET",
+      "path": "/core/plugins/status",
+      "handler": "core_plugins_status"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "health"
+    },
+    {
+      "method": "GET",
+      "path": "/missions",
+      "handler": "missions"
+    },
+    {
+      "method": "POST",
+      "path": "/missions",
+      "handler": "sprint01_create_mission"
+    },
+    {
+      "method": "PATCH",
+      "path": "/missions/{mission_id}",
+      "handler": "sprint01_update_mission"
+    },
+    {
+      "method": "GET",
+      "path": "/sitreps",
+      "handler": "sitreps"
+    },
+    {
+      "method": "POST",
+      "path": "/sitreps",
+      "handler": "create_sitrep"
+    },
+    {
+      "method": "GET",
+      "path": "/status",
+      "handler": "mission_control_status"
+    },
+    {
+      "method": "GET",
+      "path": "/system/status",
+      "handler": "system_status"
+    }
+  ],
+  "route_count": 84,
+  "sprint_marker_count": 21,
+  "recommendation": "Begin modular route extraction only after this inventory is committed and tests are green."
+}

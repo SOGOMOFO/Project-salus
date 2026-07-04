@@ -13,6 +13,7 @@ Project Salus works, but most sprint code currently lives in backend/main.py. Th
 - Data storage plan
 - Risk list
 - Technical debt list
+- Audit script
 - Tests
 
 ## Candidate Hardening Work
@@ -30,5 +31,13 @@ Project Salus works, but most sprint code currently lives in backend/main.py. Th
 1. Project structure is assessed.
 2. Technical debt is documented.
 3. Refactor sequence is defined.
-4. No existing tests break.
-5. Next build phase is safer.
+4. Audit script exists.
+5. No existing tests break.
+6. Next build phase is safer.
+
+## Do Not Build Yet
+- New product features
+- Cloud deployment
+- Authentication
+- Database migration
+- External connectors
