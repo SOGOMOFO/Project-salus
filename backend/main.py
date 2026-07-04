@@ -3222,3 +3222,171 @@ async def sprint13_review_dashboard() -> _Sprint13HTMLResponse:
     </html>
     """
     return _Sprint13HTMLResponse(content=html)
+
+
+
+# --- Sprint 14 Command Launcher and Navigation System ---
+from fastapi.responses import HTMLResponse as _Sprint14HTMLResponse
+
+
+def _sprint14_count(name: str) -> int:
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return len(value)
+    if isinstance(value, list):
+        return len(value)
+    return 0
+
+
+@app.get("/api/command/health")
+async def sprint14_command_health() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "module": "command_launcher_navigation",
+        "system": "Project Salus Mission Control",
+        "primary_pages": {
+            "home": "/",
+            "launcher": "/command/home",
+            "ops_dashboard": "/command/ops",
+            "review_dashboard": "/command/review",
+            "integrated_dashboard": "/command/integrated",
+            "daily_mode": "/command/daily",
+        },
+        "api_endpoints": {
+            "health": "/api/command/health",
+            "integrated_state": "/api/command/integrated-state",
+            "review_state": "/api/command/review-state",
+            "daily_use_state": "/api/daily-use/state",
+            "schoolhouse_status": "/api/schoolhouse/status",
+            "charisma_status": "/api/skills/charisma",
+        },
+        "data_counts": {
+            "missions": _sprint14_count("_sprint01_missions"),
+            "daily_briefs": _sprint14_count("_sprint01_daily_briefs"),
+            "aars": _sprint14_count("_sprint04_aars"),
+            "schoolhouse_courses": _sprint14_count("_schoolhouse_courses"),
+            "schoolhouse_study_sessions": _sprint14_count("_schoolhouse_study_sessions"),
+            "charisma_self_assessments": _sprint14_count("_charisma_self_assessments"),
+            "charisma_conversation_aars": _sprint14_count("_charisma_conversation_aars"),
+        },
+        "next_action": "Open /command/ops for daily work or /command/review to inspect saved data.",
+    }
+
+
+def _sprint14_launcher_html(title: str) -> str:
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <title>{title}</title>
+        <style>
+          body {{
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }}
+          h1, h2 {{
+            color: #d7b46a;
+          }}
+          .grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 18px;
+          }}
+          .panel {{
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }}
+          a.button, button {{
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }}
+          pre {{
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 360px;
+            overflow: auto;
+          }}
+          .muted {{
+            color: #aab7c7;
+          }}
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus Mission Control</h1>
+        <p class="muted">Command launcher for Kyle's daily operating system.</p>
+
+        <div class="panel">
+          <h2>Primary Actions</h2>
+          <a class="button" href="/command/ops">Open Operational Dashboard</a>
+          <a class="button" href="/command/review">Open Review Dashboard</a>
+          <a class="button" href="/command/integrated">Open Integrated Dashboard</a>
+          <a class="button" href="/command/daily">Open Daily Mode</a>
+          <button onclick="loadHealth()">Check Health</button>
+          <pre id="health">Click Check Health.</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Daily Operations</h2>
+            <p>Create daily briefs, missions, study sessions, and communication AARs.</p>
+            <a class="button" href="/command/ops">Go to Ops</a>
+          </div>
+
+          <div class="panel">
+            <h2>Review History</h2>
+            <p>Review stored missions, Schoolhouse data, Charisma records, and AAR history.</p>
+            <a class="button" href="/command/review">Go to Review</a>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse</h2>
+            <p>Learning coach for WGU, cybersecurity, AI, and durable skill development.</p>
+            <a class="button" href="/api/schoolhouse/status">Schoolhouse Status</a>
+            <a class="button" href="/api/schoolhouse/daily-brief">School Brief</a>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma</h2>
+            <p>Presence, listening, communication clarity, and ethical influence training.</p>
+            <a class="button" href="/api/skills/charisma">Charisma Status</a>
+            <a class="button" href="/api/skills/charisma/daily-drill">Daily Drill</a>
+          </div>
+        </div>
+
+        <script>
+          async function loadHealth() {{
+            const res = await fetch("/api/command/health");
+            const data = await res.json();
+            document.getElementById("health").textContent = JSON.stringify(data, null, 2);
+          }}
+        </script>
+      </body>
+    </html>
+    """
+
+
+@app.get("/", response_class=_Sprint14HTMLResponse)
+async def sprint14_home_page() -> _Sprint14HTMLResponse:
+    return _Sprint14HTMLResponse(content=_sprint14_launcher_html("Project Salus Mission Control"))
+
+
+@app.get("/command/home", response_class=_Sprint14HTMLResponse)
+async def sprint14_command_home_page() -> _Sprint14HTMLResponse:
+    return _Sprint14HTMLResponse(content=_sprint14_launcher_html("Project Salus — Command Home"))
