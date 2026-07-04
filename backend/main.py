@@ -4942,3 +4942,328 @@ async def sprint19_readiness_page() -> _Sprint19HTMLResponse:
     </html>
     """
     return _Sprint19HTMLResponse(content=html)
+
+
+
+# --- Sprint 20 Dashboard Index and Final Local MVP Checkpoint ---
+from fastapi.responses import HTMLResponse as _Sprint20HTMLResponse
+
+
+def _sprint20_count(name: str) -> int:
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return len(value)
+    if isinstance(value, list):
+        return len(value)
+    return 0
+
+
+def _sprint20_capability(name: str, status: str, description: str, pages: list, apis: list) -> Dict[str, Any]:
+    return {
+        "name": name,
+        "status": status,
+        "description": description,
+        "pages": pages,
+        "apis": apis,
+    }
+
+
+@app.get("/api/command/dashboard-index")
+async def sprint20_dashboard_index() -> Dict[str, Any]:
+    capabilities = [
+        _sprint20_capability(
+            "Core Command Loop",
+            "complete",
+            "Daily brief, missions, AAR logging, and judgment support foundation.",
+            ["/command/daily"],
+            ["/api/daily-brief", "/missions", "/api/aar", "/api/judgment"],
+        ),
+        _sprint20_capability(
+            "Data Hygiene and Reset Controls",
+            "complete",
+            "Local development reset controls and persistent data cleanup support.",
+            [],
+            ["/api/dev/reset"],
+        ),
+        _sprint20_capability(
+            "Real Daily Use Mode",
+            "complete",
+            "Daily-use API and page for operational morning/evening use.",
+            ["/command/daily"],
+            ["/api/daily-use/state", "/api/daily-use/brief", "/api/daily-use/aar"],
+        ),
+        _sprint20_capability(
+            "Schoolhouse Learning Coach",
+            "complete",
+            "WGU and cybersecurity learning coach for courses, study sessions, quiz mode, and writing tasks.",
+            ["/command/ops", "/command/review"],
+            [
+                "/api/schoolhouse/status",
+                "/api/schoolhouse/course",
+                "/api/schoolhouse/courses",
+                "/api/schoolhouse/study-session",
+                "/api/schoolhouse/daily-brief",
+                "/api/schoolhouse/quiz",
+                "/api/schoolhouse/wrong-answer-review",
+                "/api/schoolhouse/writing-task",
+            ],
+        ),
+        _sprint20_capability(
+            "Charisma and Communication Skill",
+            "complete",
+            "Ethical communication, listening, presence, and conversation AAR capability.",
+            ["/command/ops", "/command/review"],
+            [
+                "/api/skills/charisma",
+                "/api/skills/charisma/self-assessment",
+                "/api/skills/charisma/daily-drill",
+                "/api/skills/charisma/conversation-aar",
+            ],
+        ),
+        _sprint20_capability(
+            "Persistent Capability Data",
+            "complete",
+            "Schoolhouse and Charisma records persist across server restarts.",
+            [],
+            ["/api/dev/reset"],
+        ),
+        _sprint20_capability(
+            "Operational Dashboard Controls",
+            "complete",
+            "Browser forms for daily brief, missions, Schoolhouse, and Charisma records.",
+            ["/command/ops"],
+            ["/api/command/integrated-state"],
+        ),
+        _sprint20_capability(
+            "Operational Review and History",
+            "complete",
+            "Browser review of stored missions, briefs, AARs, Schoolhouse records, and Charisma records.",
+            ["/command/review"],
+            ["/api/command/review-state"],
+        ),
+        _sprint20_capability(
+            "Command Launcher and Navigation",
+            "complete",
+            "Command home, navigation hub, local launch scripts, and health endpoint.",
+            ["/command/home", "/command/navigation"],
+            ["/api/command/health", "/api/command/navigation"],
+        ),
+        _sprint20_capability(
+            "Daily Driver and Workflows",
+            "complete",
+            "Daily driver page and guided morning/evening workflow automation.",
+            ["/command/daily-driver", "/command/workflows"],
+            ["/api/command/daily-driver-state", "/api/workflows/morning", "/api/workflows/evening", "/api/workflows/today"],
+        ),
+        _sprint20_capability(
+            "Record Management",
+            "complete",
+            "Archive and delete controls for local records.",
+            ["/command/records"],
+            ["/api/command/records", "/api/command/records/archive", "/api/command/records/delete"],
+        ),
+        _sprint20_capability(
+            "System Readiness",
+            "complete",
+            "Readiness scoring for system, daily operations, Schoolhouse, Charisma, and data hygiene.",
+            ["/command/readiness"],
+            ["/api/command/readiness"],
+        ),
+        _sprint20_capability(
+            "Dashboard Index",
+            "complete",
+            "Final local MVP dashboard index and capability inventory.",
+            ["/command/dashboard-index"],
+            ["/api/command/dashboard-index"],
+        ),
+    ]
+
+    primary_pages = {
+        "dashboard_index": "/command/dashboard-index",
+        "readiness": "/command/readiness",
+        "navigation": "/command/navigation",
+        "workflows": "/command/workflows",
+        "daily_driver": "/command/daily-driver",
+        "command_home": "/command/home",
+        "ops": "/command/ops",
+        "review": "/command/review",
+        "records": "/command/records",
+        "integrated": "/command/integrated",
+        "daily": "/command/daily",
+    }
+
+    local_scripts = {
+        "start": "scripts/start_salus.sh",
+        "stop": "scripts/stop_salus.sh",
+    }
+
+    data_counts = {
+        "missions": _sprint20_count("_sprint01_missions"),
+        "daily_briefs": _sprint20_count("_sprint01_daily_briefs"),
+        "aars": _sprint20_count("_sprint04_aars"),
+        "schoolhouse_courses": _sprint20_count("_schoolhouse_courses"),
+        "schoolhouse_study_sessions": _sprint20_count("_schoolhouse_study_sessions"),
+        "charisma_self_assessments": _sprint20_count("_charisma_self_assessments"),
+        "charisma_conversation_aars": _sprint20_count("_charisma_conversation_aars"),
+    }
+
+    return {
+        "status": "ok",
+        "module": "dashboard_index_final_local_mvp",
+        "project": "Project Salus Mission Control",
+        "local_mvp_status": "complete",
+        "capability_count": len(capabilities),
+        "capabilities": capabilities,
+        "primary_pages": primary_pages,
+        "local_scripts": local_scripts,
+        "data_counts": data_counts,
+        "recommended_start_page": "/command/dashboard-index",
+        "recommended_daily_page": "/command/workflows",
+        "recommended_status_page": "/command/readiness",
+        "next_action": "Use /command/dashboard-index as the local MVP index and /command/workflows for daily execution.",
+    }
+
+
+@app.get("/command/dashboard-index", response_class=_Sprint20HTMLResponse)
+async def sprint20_dashboard_index_page() -> _Sprint20HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Dashboard Index</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 { color: #d7b46a; }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          a.button, button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 460px;
+            overflow: auto;
+          }
+          .muted { color: #aab7c7; }
+          .status {
+            color: #9ee493;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Dashboard Index</h1>
+        <p class="muted">Final local MVP capability inventory and page index.</p>
+
+        <div class="panel">
+          <h2>Primary Launch Points</h2>
+          <a class="button" href="/command/readiness">Readiness</a>
+          <a class="button" href="/command/navigation">Navigation</a>
+          <a class="button" href="/command/workflows">Daily Workflows</a>
+          <a class="button" href="/command/daily-driver">Daily Driver</a>
+          <a class="button" href="/command/ops">Ops</a>
+          <a class="button" href="/command/review">Review</a>
+          <a class="button" href="/command/records">Records</a>
+          <button onclick="loadIndex()">Refresh Index</button>
+        </div>
+
+        <div class="panel">
+          <h2>Local MVP Status</h2>
+          <div class="status" id="mvpStatus">Loading...</div>
+          <pre id="summary">Loading...</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Capabilities</h2>
+            <pre id="capabilities">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Primary Pages</h2>
+            <pre id="pages">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Local Scripts</h2>
+            <pre id="scripts">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Data Counts</h2>
+            <pre id="counts">Loading...</pre>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Full Dashboard Index State</h2>
+          <pre id="state">Loading...</pre>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function loadIndex() {
+            const state = await getJson("/api/command/dashboard-index");
+
+            document.getElementById("mvpStatus").textContent =
+              "Local MVP Status: " + state.local_mvp_status.toUpperCase();
+
+            show("summary", {
+              project: state.project,
+              capability_count: state.capability_count,
+              recommended_start_page: state.recommended_start_page,
+              recommended_daily_page: state.recommended_daily_page,
+              recommended_status_page: state.recommended_status_page,
+              next_action: state.next_action
+            });
+
+            show("capabilities", state.capabilities);
+            show("pages", state.primary_pages);
+            show("scripts", state.local_scripts);
+            show("counts", state.data_counts);
+            show("state", state);
+          }
+
+          loadIndex();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint20HTMLResponse(content=html)

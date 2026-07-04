@@ -10,6 +10,9 @@ Project Salus now has many pages and modules. It needs one final MVP index and a
 - Dashboard index endpoint
 - Dashboard index page
 - Local MVP capability inventory
+- Primary page inventory
+- Major API inventory
+- Local script inventory
 - Final local MVP checkpoint
 - Tests
 
@@ -31,3 +34,4 @@ Project Salus now has many pages and modules. It needs one final MVP index and a
 - Authentication
 - Database migration
 - External connectors
+- Multi-user production mode
