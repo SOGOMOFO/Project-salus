@@ -1698,3 +1698,293 @@ async def sprint06_dev_reset(payload: Dict[str, Any]) -> Dict[str, Any]:
             "files": cleared_files,
         },
     }
+
+
+
+# --- Sprint 07 Real Daily Use Mode ---
+from fastapi.responses import HTMLResponse as _Sprint07HTMLResponse
+
+
+def _sprint07_latest_brief() -> Dict[str, Any]:
+    if "_sprint01_daily_briefs" in globals() and _sprint01_daily_briefs:
+        return _sprint01_daily_briefs[-1]
+    return _sprint01_default_daily_brief()
+
+
+def _sprint07_mission_summary() -> Dict[str, Any]:
+    missions = list(globals().get("_sprint01_missions", {}).values())
+    completed_statuses = {"complete", "completed", "done"}
+    blocked_statuses = {"blocked", "stuck"}
+
+    completed = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() in completed_statuses
+    ]
+
+    blocked = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() in blocked_statuses
+    ]
+
+    active = [
+        mission for mission in missions
+        if mission not in completed
+    ]
+
+    return {
+        "total": len(missions),
+        "active": len(active),
+        "completed": len(completed),
+        "blocked": len(blocked),
+    }
+
+
+def _sprint07_aar_count() -> int:
+    live_aars = globals().get("_sprint04_aars", [])
+    if live_aars:
+        return len(live_aars)
+
+    try:
+        return len(_sprint01_load_json(_SPRINT01_AARS_FILE, []))
+    except Exception:
+        return 0
+
+
+@app.get("/api/daily-use/state")
+async def sprint07_daily_use_state() -> Dict[str, Any]:
+    missions = list(globals().get("_sprint01_missions", {}).values())
+
+    return {
+        "status": "ok",
+        "mode": "real_daily_use",
+        "daily_brief": _sprint07_latest_brief(),
+        "missions_summary": _sprint07_mission_summary(),
+        "missions": missions,
+        "aar_count": _sprint07_aar_count(),
+        "ready": True,
+        "next_required_action": "Run morning brief, update missions, and close with an AAR.",
+    }
+
+
+@app.post("/api/daily-use/brief")
+async def sprint07_create_daily_use_brief(payload: Dict[str, Any]) -> Dict[str, Any]:
+    brief = _sprint01_default_daily_brief()
+    brief.update(payload)
+    brief["id"] = str(payload.get("id") or uuid4())
+    brief["mode"] = "real_daily_use"
+    brief["created_at"] = _sprint01_now()
+
+    _sprint01_daily_briefs.append(brief)
+
+    save_json = globals().get("_sprint01_save_json")
+    if save_json:
+        try:
+            save_json("sprint01_daily_briefs.json", _sprint01_daily_briefs)
+        except Exception:
+            pass
+
+    return {
+        "status": "ok",
+        "daily_brief": brief,
+    }
+
+
+@app.post("/api/daily-use/aar")
+async def sprint07_create_daily_use_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
+    record = {
+        "id": str(payload.get("id") or uuid4()),
+        "date": payload.get("date") or datetime.now(timezone.utc).date().isoformat(),
+        "mode": "real_daily_use",
+        "what_happened": payload.get("what_happened", ""),
+        "what_worked": payload.get("what_worked", ""),
+        "what_failed": payload.get("what_failed", ""),
+        "lesson_learned": payload.get("lesson_learned", ""),
+        "adjustment": payload.get("adjustment", ""),
+        "created_at": _sprint01_now(),
+    }
+
+    if "_sprint04_aars" not in globals():
+        globals()["_sprint04_aars"] = []
+
+    _sprint04_aars.append(record)
+
+    save_json = globals().get("_sprint01_save_json")
+    if save_json:
+        try:
+            save_json(_SPRINT01_AARS_FILE, _sprint04_aars)
+        except Exception:
+            pass
+
+    return {
+        "status": "ok",
+        "aar": record,
+    }
+
+
+@app.get("/command/daily", response_class=_Sprint07HTMLResponse)
+async def sprint07_daily_command_page() -> _Sprint07HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Real Daily Use Mode</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 18px;
+            background: #0d1c2f;
+          }
+          button {
+            background: #d7b46a;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+          }
+          textarea, input, select {
+            width: 100%;
+            margin: 6px 0 12px 0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            background: #081525;
+            color: #f4f7fb;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Real Daily Use Mode</h1>
+
+        <div class="panel">
+          <h2>Dashboard State</h2>
+          <button onclick="refreshState()">Refresh State</button>
+          <pre id="state">Ready.</pre>
+        </div>
+
+        <div class="panel">
+          <h2>Morning Commander Brief</h2>
+          <input id="intent" placeholder="Commander intent" value="Execute today's highest-leverage missions.">
+          <textarea id="priorities" placeholder="Top priorities, one per line"></textarea>
+          <textarea id="risks" placeholder="Risks, one per line"></textarea>
+          <textarea id="actions" placeholder="Next actions, one per line"></textarea>
+          <button onclick="saveBrief()">Save Daily Brief</button>
+        </div>
+
+        <div class="panel">
+          <h2>Mission Entry</h2>
+          <input id="mission_title" placeholder="Mission title">
+          <textarea id="mission_intent" placeholder="Mission intent"></textarea>
+          <select id="mission_priority">
+            <option>high</option>
+            <option>medium</option>
+            <option>low</option>
+          </select>
+          <select id="mission_status">
+            <option>planned</option>
+            <option>in_progress</option>
+            <option>blocked</option>
+            <option>completed</option>
+          </select>
+          <input id="mission_next_action" placeholder="Next action">
+          <button onclick="createMission()">Create Mission</button>
+        </div>
+
+        <div class="panel">
+          <h2>Evening AAR</h2>
+          <textarea id="what_happened" placeholder="What happened?"></textarea>
+          <textarea id="what_worked" placeholder="What worked?"></textarea>
+          <textarea id="what_failed" placeholder="What failed?"></textarea>
+          <textarea id="lesson" placeholder="Lesson learned"></textarea>
+          <textarea id="adjustment" placeholder="Adjustment"></textarea>
+          <button onclick="saveAAR()">Save AAR</button>
+        </div>
+
+        <script>
+          async function api(path, options = {}) {
+            const res = await fetch(path, {
+              headers: { "Content-Type": "application/json" },
+              ...options
+            });
+            return await res.json();
+          }
+
+          function lines(id) {
+            return document.getElementById(id).value
+              .split("\\n")
+              .map(x => x.trim())
+              .filter(Boolean);
+          }
+
+          async function refreshState() {
+            const data = await api("/api/daily-use/state");
+            document.getElementById("state").textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function saveBrief() {
+            await api("/api/daily-use/brief", {
+              method: "POST",
+              body: JSON.stringify({
+                commander_intent: document.getElementById("intent").value,
+                top_priorities: lines("priorities"),
+                risks: lines("risks"),
+                next_actions: lines("actions")
+              })
+            });
+            await refreshState();
+          }
+
+          async function createMission() {
+            await api("/missions", {
+              method: "POST",
+              body: JSON.stringify({
+                title: document.getElementById("mission_title").value,
+                intent: document.getElementById("mission_intent").value,
+                priority: document.getElementById("mission_priority").value,
+                status: document.getElementById("mission_status").value,
+                risk: "not_assessed",
+                next_action: document.getElementById("mission_next_action").value
+              })
+            });
+            await refreshState();
+          }
+
+          async function saveAAR() {
+            await api("/api/daily-use/aar", {
+              method: "POST",
+              body: JSON.stringify({
+                what_happened: document.getElementById("what_happened").value,
+                what_worked: document.getElementById("what_worked").value,
+                what_failed: document.getElementById("what_failed").value,
+                lesson_learned: document.getElementById("lesson").value,
+                adjustment: document.getElementById("adjustment").value
+              })
+            });
+            await refreshState();
+          }
+
+          refreshState();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint07HTMLResponse(content=html)
