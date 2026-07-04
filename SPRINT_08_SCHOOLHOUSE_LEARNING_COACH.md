@@ -1,25 +1,29 @@
 # Sprint 08 — Schoolhouse Learning Coach Module
 
 ## Objective
-Build a dedicated Project Salus teaching module to help Kyle learn WGU school work, cybersecurity, AI, investing, and business skills.
+Build a dedicated Project Salus teaching module to help Kyle learn WGU school work, cybersecurity, AI, investing, business, and leadership skills.
 
 ## Doctrine
 The Schoolhouse module must make Kyle more capable, not more dependent on AI.
 
-It should teach:
+The module should teach:
 - understanding
 - memory
 - application
 - reasoning
+- independent recall
 - exam readiness
 - writing quality
-- independent recall
+- professional communication
 
 ## Primary User
 Kyle
 
 ## Current Education Mission
 WGU BS Cybersecurity and Information Assurance.
+
+## Core Purpose
+Project Salus Schoolhouse exists to help Kyle learn faster, retain more, pass school requirements, and build durable knowledge for cybersecurity, AI, business, and investing.
 
 ## Core Capabilities
 - Course tracker
@@ -80,6 +84,18 @@ The module should support:
 - D333 written tasks
 - Prompt Engineering OA retake preparation
 - Cybersecurity/GRC career alignment
+- Future certification alignment
+
+## Schoolhouse Teaching Rules
+The module should:
+1. Teach first principles.
+2. Use plain language.
+3. Ask Kyle one question at a time during quiz mode.
+4. Correct briefly.
+5. Explain the reason.
+6. Track weak areas.
+7. Build confidence through competence, not praise.
+8. Help Kyle produce his own answers.
 
 ## Do Not Build Yet
 - Full LMS integration
@@ -88,6 +104,7 @@ The module should support:
 - Paid course marketplace
 - Voice/video tutoring
 - Public education product
+- Full AI agent orchestration
 
 ## Success Criteria
 1. Kyle can add a WGU course.
