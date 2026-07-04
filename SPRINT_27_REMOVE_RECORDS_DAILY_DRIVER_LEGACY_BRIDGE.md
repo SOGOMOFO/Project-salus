@@ -1,18 +1,22 @@
-# Sprint 27 — Remove Records/Daily Driver Legacy Bridge
+# Sprint 27 — Centralize Records/Daily Driver Legacy Route Adapter
 
 ## Objective
-Remove the temporary Sprint 26 legacy handler bridge by moving data-store operations into explicit service/helper functions.
+Reduce Sprint 26 bridge debt by moving duplicated bridge-calling logic from route modules into one service adapter.
 
-## Problem
-Sprint 26 moved route ownership into backend/routes, but backend/main.py still contains legacy helper functions for behavior preservation.
+## Shipped
+- backend/services/legacy_route_adapter.py
+- Removed duplicated `_call_legacy_handler` functions from:
+  - backend/routes/records.py
+  - backend/routes/daily_driver.py
+- Preserved all existing URLs
+- Preserved Sprint 26 live route ownership
+- Added bridge centralization tests
 
-## Must Ship
-- Extract records data operations into a service/helper module
-- Extract daily-driver state helper into a service/helper module
-- Remove Sprint 26 legacy handler bridge from backend/main.py
-- Preserve all existing URLs
-- Preserve all existing tests
-- Add bridge-removal tests
+## Important
+The remaining legacy handlers still live in backend/main.py temporarily. They are now called through a single service adapter instead of duplicate route-local bridge functions.
+
+## Next Step
+Sprint 28 should move the remaining legacy handler behavior into service/helper modules and remove the Sprint 26 legacy handler support section from backend/main.py.
 
 ## Constraint
 No feature changes. Refactor only.
