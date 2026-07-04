@@ -1688,6 +1688,38 @@ async def sprint06_dev_reset(payload: Dict[str, Any]) -> Dict[str, Any]:
             except Exception:
                 pass
 
+    # Sprint 12 capability data reset
+    sprint12_memory_lists = [
+        "_schoolhouse_courses",
+        "_schoolhouse_study_sessions",
+        "_schoolhouse_wrong_answer_reviews",
+        "_schoolhouse_writing_tasks",
+        "_charisma_self_assessments",
+        "_charisma_conversation_aars",
+    ]
+
+    for list_name in sprint12_memory_lists:
+        value = globals().get(list_name)
+        if isinstance(value, list):
+            value.clear()
+            cleared_files.append(list_name.lstrip("_"))
+
+    sprint12_files = [
+        "sprint12_schoolhouse_courses.json",
+        "sprint12_schoolhouse_study_sessions.json",
+        "sprint12_schoolhouse_wrong_answer_reviews.json",
+        "sprint12_schoolhouse_writing_tasks.json",
+        "sprint12_charisma_self_assessments.json",
+        "sprint12_charisma_conversation_aars.json",
+    ]
+
+    for filename in sprint12_files:
+        try:
+            _sprint01_save_json(filename, [])
+            cleared_files.append(filename)
+        except Exception:
+            pass
+
     return {
         "status": "ok",
         "reset": True,
@@ -1992,10 +2024,41 @@ async def sprint07_daily_command_page() -> _Sprint07HTMLResponse:
 
 
 # --- Sprint 08 Schoolhouse Learning Coach Module ---
-_schoolhouse_courses = []
-_schoolhouse_study_sessions = []
-_schoolhouse_wrong_answer_reviews = []
-_schoolhouse_writing_tasks = []
+_SPRINT12_SCHOOLHOUSE_COURSES_FILE = "sprint12_schoolhouse_courses.json"
+_SPRINT12_SCHOOLHOUSE_STUDY_SESSIONS_FILE = "sprint12_schoolhouse_study_sessions.json"
+_SPRINT12_SCHOOLHOUSE_WRONG_ANSWER_REVIEWS_FILE = "sprint12_schoolhouse_wrong_answer_reviews.json"
+_SPRINT12_SCHOOLHOUSE_WRITING_TASKS_FILE = "sprint12_schoolhouse_writing_tasks.json"
+_SPRINT12_CHARISMA_SELF_ASSESSMENTS_FILE = "sprint12_charisma_self_assessments.json"
+_SPRINT12_CHARISMA_CONVERSATION_AARS_FILE = "sprint12_charisma_conversation_aars.json"
+
+
+def _sprint12_load_list(filename: str) -> list:
+    try:
+        return _sprint01_load_json(filename, [])
+    except Exception:
+        return []
+
+
+def _sprint12_save_list(filename: str, data: list) -> None:
+    try:
+        _sprint01_save_json(filename, data)
+    except Exception:
+        pass
+
+
+def _sprint12_save_capability_data() -> None:
+    _sprint12_save_list(_SPRINT12_SCHOOLHOUSE_COURSES_FILE, globals().get("_schoolhouse_courses", []))
+    _sprint12_save_list(_SPRINT12_SCHOOLHOUSE_STUDY_SESSIONS_FILE, globals().get("_schoolhouse_study_sessions", []))
+    _sprint12_save_list(_SPRINT12_SCHOOLHOUSE_WRONG_ANSWER_REVIEWS_FILE, globals().get("_schoolhouse_wrong_answer_reviews", []))
+    _sprint12_save_list(_SPRINT12_SCHOOLHOUSE_WRITING_TASKS_FILE, globals().get("_schoolhouse_writing_tasks", []))
+    _sprint12_save_list(_SPRINT12_CHARISMA_SELF_ASSESSMENTS_FILE, globals().get("_charisma_self_assessments", []))
+    _sprint12_save_list(_SPRINT12_CHARISMA_CONVERSATION_AARS_FILE, globals().get("_charisma_conversation_aars", []))
+
+
+_schoolhouse_courses = _sprint12_load_list(_SPRINT12_SCHOOLHOUSE_COURSES_FILE)
+_schoolhouse_study_sessions = _sprint12_load_list(_SPRINT12_SCHOOLHOUSE_STUDY_SESSIONS_FILE)
+_schoolhouse_wrong_answer_reviews = _sprint12_load_list(_SPRINT12_SCHOOLHOUSE_WRONG_ANSWER_REVIEWS_FILE)
+_schoolhouse_writing_tasks = _sprint12_load_list(_SPRINT12_SCHOOLHOUSE_WRITING_TASKS_FILE)
 
 
 def _schoolhouse_now() -> str:
@@ -2054,6 +2117,7 @@ async def schoolhouse_create_course(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     _schoolhouse_courses.append(course)
+    _sprint12_save_capability_data()
 
     return {
         "status": "ok",
@@ -2099,6 +2163,7 @@ async def schoolhouse_study_session(payload: Dict[str, Any]) -> Dict[str, Any]:
     session["readiness_signal"] = readiness_signal
 
     _schoolhouse_study_sessions.append(session)
+    _sprint12_save_capability_data()
 
     return {
         "status": "ok",
@@ -2187,6 +2252,7 @@ async def schoolhouse_wrong_answer_review(payload: Dict[str, Any]) -> Dict[str, 
     }
 
     _schoolhouse_wrong_answer_reviews.append(review)
+    _sprint12_save_capability_data()
 
     return {
         "status": "ok",
@@ -2209,6 +2275,7 @@ async def schoolhouse_writing_task(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     _schoolhouse_writing_tasks.append(task)
+    _sprint12_save_capability_data()
 
     section_plan = [
         {
@@ -2228,8 +2295,8 @@ async def schoolhouse_writing_task(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # --- Sprint 09 Charisma and Communication Skill Module ---
-_charisma_self_assessments = []
-_charisma_conversation_aars = []
+_charisma_self_assessments = _sprint12_load_list(_SPRINT12_CHARISMA_SELF_ASSESSMENTS_FILE) if "_sprint12_load_list" in globals() else []
+_charisma_conversation_aars = _sprint12_load_list(_SPRINT12_CHARISMA_CONVERSATION_AARS_FILE) if "_sprint12_load_list" in globals() else []
 
 
 def _charisma_now() -> str:
@@ -2330,6 +2397,7 @@ async def charisma_self_assessment(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     _charisma_self_assessments.append(assessment)
+    _sprint12_save_capability_data()
 
     return {
         "status": "ok",
@@ -2417,6 +2485,7 @@ async def charisma_conversation_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
         aar["what_to_improve"] = score["recommendation"]
 
     _charisma_conversation_aars.append(aar)
+    _sprint12_save_capability_data()
 
     return {
         "status": "ok",
