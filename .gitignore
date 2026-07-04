@@ -24,3 +24,4 @@ backend/memory/memory.sqlite
 # Environment files
 .env
 .env.*
+data/*.json
