@@ -7,8 +7,8 @@
     "line_count": 4022,
     "character_count": 132051,
     "sprint_marker_count": 19,
-    "route_count": 84,
-    "route_source_count": 5
+    "route_count": 90,
+    "route_source_count": 7
   },
   "sprint_markers": [
     "--- Sprint 01 Core Loop compatibility endpoints ---",
@@ -98,6 +98,13 @@
     {
       "method": "GET",
       "path": "/api/command/daily-driver-state",
+      "source_file": "backend/routes/daily_driver.py",
+      "decorator_owner": "router",
+      "handler": "daily_driver_state_api"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/daily-driver-state",
       "source_file": "backend/main.py",
       "decorator_owner": "app",
       "handler": "sprint15_daily_driver_state"
@@ -140,6 +147,13 @@
     {
       "method": "GET",
       "path": "/api/command/records",
+      "source_file": "backend/routes/records.py",
+      "decorator_owner": "router",
+      "handler": "records_api"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command/records",
       "source_file": "backend/main.py",
       "decorator_owner": "app",
       "handler": "sprint16_record_management_state"
@@ -147,9 +161,23 @@
     {
       "method": "POST",
       "path": "/api/command/records/archive",
+      "source_file": "backend/routes/records.py",
+      "decorator_owner": "router",
+      "handler": "records_archive_api"
+    },
+    {
+      "method": "POST",
+      "path": "/api/command/records/archive",
       "source_file": "backend/main.py",
       "decorator_owner": "app",
       "handler": "sprint16_archive_record"
+    },
+    {
+      "method": "POST",
+      "path": "/api/command/records/delete",
+      "source_file": "backend/routes/records.py",
+      "decorator_owner": "router",
+      "handler": "records_delete_api"
     },
     {
       "method": "POST",
@@ -483,6 +511,13 @@
     {
       "method": "GET",
       "path": "/command/daily-driver",
+      "source_file": "backend/routes/daily_driver.py",
+      "decorator_owner": "router",
+      "handler": "daily_driver_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/daily-driver",
       "source_file": "backend/main.py",
       "decorator_owner": "app",
       "handler": "sprint15_daily_driver_page"
@@ -528,6 +563,13 @@
       "source_file": "backend/routes/readiness.py",
       "decorator_owner": "router",
       "handler": "readiness_page"
+    },
+    {
+      "method": "GET",
+      "path": "/command/records",
+      "source_file": "backend/routes/records.py",
+      "decorator_owner": "router",
+      "handler": "records_page"
     },
     {
       "method": "GET",
@@ -621,7 +663,7 @@
       "handler": "system_status"
     }
   ],
-  "route_count": 84,
+  "route_count": 90,
   "sprint_marker_count": 19,
   "recommendation": "Continue modular route extraction one route group at a time with tests green after every extraction."
 }

@@ -3,15 +3,19 @@
 ## Objective
 Continue modularizing backend/main.py by extracting record management and daily driver routes into dedicated modules.
 
-## Must Ship
+## Shipped
 - backend/routes/records.py
 - backend/routes/daily_driver.py
-- Preserve existing URLs
-- Remove duplicate route blocks from backend/main.py after wiring
-- Update route inventory
-- Add route behavior tests
+- Route manifests
+- Extracted payload builders
+- Extracted HTML renderers
+- Route module tests
+- Live route behavior checks
 
-## Candidate Routes
+## Important Note
+This sprint performs a safe shadow extraction. Existing URLs remain served by backend/main.py until the next sprint wires these extracted routers into the live app and removes duplicated code.
+
+## Routes Shadow-Extracted
 - /api/command/records
 - /api/command/records/archive
 - /api/command/records/delete
