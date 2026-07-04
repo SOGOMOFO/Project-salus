@@ -4,8 +4,8 @@
   "source": "backend/main.py",
   "metrics": {
     "path": "backend/main.py",
-    "line_count": 4029,
-    "character_count": 132384,
+    "line_count": 3415,
+    "character_count": 111219,
     "sprint_marker_count": 18,
     "route_count": 84,
     "route_source_count": 7

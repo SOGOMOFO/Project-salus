@@ -4,7 +4,7 @@
 - Source: `backend/main.py`
 - Route count: 84
 - Sprint marker count: 18
-- Line count: 4029
+- Line count: 3415
 - Route source count: 7
 
 ## Sprint Markers

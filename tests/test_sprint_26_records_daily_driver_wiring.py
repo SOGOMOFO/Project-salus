@@ -55,7 +55,12 @@ def test_sprint_26_main_has_wiring_and_no_old_direct_blocks():
     assert "# --- Sprint 26 Wire Records and Daily Driver Routers ---" in text
     assert "# --- Sprint 15 Daily Driver Polish ---" not in text
     assert "# --- Sprint 16 Record Management Controls ---" not in text
-    assert "Sprint 26 Legacy Handler Bridge" in text
+
+    sprint_29_plan_exists = Path("SPRINT_29_MOVE_RECORDS_DAILY_DRIVER_BEHAVIOR_INTO_SERVICES.md").exists()
+    if sprint_29_plan_exists:
+        assert "Sprint 26 Legacy Handler Bridge" not in text
+    else:
+        assert "Sprint 26 Legacy Handler Bridge" in text
 
 
 def test_sprint_26_audit_detects_wired_route_sources():

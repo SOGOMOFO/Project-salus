@@ -44,12 +44,14 @@ def test_sprint_28_routes_call_service_facades_not_adapter_directly():
     assert "call_main_handler" not in daily_text
 
 
-def test_sprint_28_service_facades_still_use_adapter_temporarily():
+def test_sprint_28_service_facades_have_moved_beyond_direct_adapter_calls():
     records_service_text = Path("backend/services/records_service.py").read_text()
     daily_service_text = Path("backend/services/daily_driver_service.py").read_text()
 
-    assert "call_main_handler" in records_service_text
-    assert "call_main_handler" in daily_service_text
+    assert "call_main_handler" not in records_service_text
+    assert "call_main_handler" not in daily_service_text
+    assert "invoke_legacy_source" in records_service_text
+    assert "invoke_legacy_source" in daily_service_text
     assert "sprint16_record_management_state" in records_service_text
     assert "sprint15_daily_driver_state" in daily_service_text
 
