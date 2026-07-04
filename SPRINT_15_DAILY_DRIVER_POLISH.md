@@ -4,24 +4,25 @@
 Make Project Salus feel like a daily-use operating system instead of a collection of development pages.
 
 ## Problem
-Project Salus now works locally, but the UI is still raw. Kyle needs the daily workflow to be obvious.
+Project Salus now works locally, but the user experience is still raw. Kyle needs one obvious daily flow.
 
 ## Must Ship
-- Cleaner daily driver home section
-- Better empty states
+- Daily driver state endpoint
+- Daily driver page
 - Morning workflow section
-- Evening workflow section
-- Mission review callout
+- Evening closeout section
+- Better empty-state language
+- Mission callout
 - Schoolhouse callout
 - Charisma drill callout
-- Better labels and navigation
+- Navigation to operational and review dashboards
 - Tests
 
-## Primary Pages
-- /
-- /command/home
-- /command/ops
-- /command/review
+## New Page
+- GET /command/daily-driver
+
+## New Endpoint
+- GET /api/command/daily-driver-state
 
 ## Success Criteria
 1. Kyle knows where to start in the morning.
@@ -29,10 +30,3 @@ Project Salus now works locally, but the UI is still raw. Kyle needs the daily w
 3. Dashboard language is clearer.
 4. Empty data states are understandable.
 5. Tests pass.
-
-## Do Not Build Yet
-- Authentication
-- Cloud deployment
-- Database migration
-- Mobile app
-- External connectors
