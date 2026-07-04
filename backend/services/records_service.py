@@ -49,8 +49,6 @@ def _normalize_record_mutation_payload(payload: dict[str, Any]) -> dict[str, Any
 def _sync_legacy_globals() -> None:
     """Load shared stores/helpers through the storage registry."""
     sync_legacy_globals(globals())
-
-
 async def _resolve_result(result: Any) -> Any:
     if inspect.isawaitable(result):
         return await result
