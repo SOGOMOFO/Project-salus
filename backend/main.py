@@ -3000,3 +3000,225 @@ async def sprint11_operational_dashboard() -> _Sprint11HTMLResponse:
     </html>
     """
     return _Sprint11HTMLResponse(content=html)
+
+
+
+# --- Sprint 13 Operational Review and History Dashboard ---
+from fastapi.responses import HTMLResponse as _Sprint13HTMLResponse
+
+
+def _sprint13_safe_list(name: str) -> list:
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return list(value.values())
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _sprint13_review_count(data: list) -> int:
+    try:
+        return len(data)
+    except Exception:
+        return 0
+
+
+@app.get("/api/command/review-state")
+async def sprint13_review_state() -> Dict[str, Any]:
+    daily_briefs = _sprint13_safe_list("_sprint01_daily_briefs")
+    missions = _sprint13_safe_list("_sprint01_missions")
+    aars = _sprint13_safe_list("_sprint04_aars")
+
+    schoolhouse_courses = _sprint13_safe_list("_schoolhouse_courses")
+    schoolhouse_study_sessions = _sprint13_safe_list("_schoolhouse_study_sessions")
+    schoolhouse_wrong_answer_reviews = _sprint13_safe_list("_schoolhouse_wrong_answer_reviews")
+    schoolhouse_writing_tasks = _sprint13_safe_list("_schoolhouse_writing_tasks")
+
+    charisma_self_assessments = _sprint13_safe_list("_charisma_self_assessments")
+    charisma_conversation_aars = _sprint13_safe_list("_charisma_conversation_aars")
+
+    return {
+        "status": "ok",
+        "module": "operational_review_history",
+        "review_sections": [
+            "daily_briefs",
+            "missions",
+            "aars",
+            "schoolhouse_courses",
+            "schoolhouse_study_sessions",
+            "schoolhouse_wrong_answer_reviews",
+            "schoolhouse_writing_tasks",
+            "charisma_self_assessments",
+            "charisma_conversation_aars",
+        ],
+        "counts": {
+            "daily_briefs": _sprint13_review_count(daily_briefs),
+            "missions": _sprint13_review_count(missions),
+            "aars": _sprint13_review_count(aars),
+            "schoolhouse_courses": _sprint13_review_count(schoolhouse_courses),
+            "schoolhouse_study_sessions": _sprint13_review_count(schoolhouse_study_sessions),
+            "schoolhouse_wrong_answer_reviews": _sprint13_review_count(schoolhouse_wrong_answer_reviews),
+            "schoolhouse_writing_tasks": _sprint13_review_count(schoolhouse_writing_tasks),
+            "charisma_self_assessments": _sprint13_review_count(charisma_self_assessments),
+            "charisma_conversation_aars": _sprint13_review_count(charisma_conversation_aars),
+        },
+        "data": {
+            "daily_briefs": daily_briefs,
+            "missions": missions,
+            "aars": aars,
+            "schoolhouse_courses": schoolhouse_courses,
+            "schoolhouse_study_sessions": schoolhouse_study_sessions,
+            "schoolhouse_wrong_answer_reviews": schoolhouse_wrong_answer_reviews,
+            "schoolhouse_writing_tasks": schoolhouse_writing_tasks,
+            "charisma_self_assessments": charisma_self_assessments,
+            "charisma_conversation_aars": charisma_conversation_aars,
+        },
+        "next_action": "Review stored data and identify what should be edited, deleted, or promoted into the daily brief.",
+    }
+
+
+@app.get("/command/review", response_class=_Sprint13HTMLResponse)
+async def sprint13_review_dashboard() -> _Sprint13HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Review Dashboard</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          button, a.button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 4px 4px 4px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .muted {
+            color: #aab7c7;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Operational Review Dashboard</h1>
+        <p class="muted">Review stored missions, school data, charisma data, and AAR history.</p>
+
+        <div class="panel">
+          <h2>Review Controls</h2>
+          <button onclick="refreshReview()">Refresh Review State</button>
+          <a class="button" href="/command/ops">Open Operational Dashboard</a>
+          <a class="button" href="/command/integrated">Open Integrated Dashboard</a>
+          <pre id="counts">Loading...</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Daily Briefs</h2>
+            <pre id="daily_briefs">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Missions</h2>
+            <pre id="missions">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>AAR History</h2>
+            <pre id="aars">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Courses</h2>
+            <pre id="schoolhouse_courses">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Study Sessions</h2>
+            <pre id="schoolhouse_study_sessions">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Wrong-Answer Reviews</h2>
+            <pre id="schoolhouse_wrong_answer_reviews">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse Writing Tasks</h2>
+            <pre id="schoolhouse_writing_tasks">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma Self-Assessments</h2>
+            <pre id="charisma_self_assessments">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma Conversation AARs</h2>
+            <pre id="charisma_conversation_aars">Loading...</pre>
+          </div>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function refreshReview() {
+            const state = await getJson("/api/command/review-state");
+            show("counts", state.counts);
+            show("daily_briefs", state.data.daily_briefs);
+            show("missions", state.data.missions);
+            show("aars", state.data.aars);
+            show("schoolhouse_courses", state.data.schoolhouse_courses);
+            show("schoolhouse_study_sessions", state.data.schoolhouse_study_sessions);
+            show("schoolhouse_wrong_answer_reviews", state.data.schoolhouse_wrong_answer_reviews);
+            show("schoolhouse_writing_tasks", state.data.schoolhouse_writing_tasks);
+            show("charisma_self_assessments", state.data.charisma_self_assessments);
+            show("charisma_conversation_aars", state.data.charisma_conversation_aars);
+          }
+
+          refreshReview();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint13HTMLResponse(content=html)
