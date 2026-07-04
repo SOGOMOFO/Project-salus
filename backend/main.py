@@ -2423,3 +2423,199 @@ async def charisma_conversation_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
         "conversation_aar": aar,
         "teaching_point": "The goal is not to win every conversation. The goal is to communicate clearly, listen accurately, and build trust ethically.",
     }
+
+
+
+# --- Sprint 10 Command Dashboard Integration ---
+from fastapi.responses import HTMLResponse as _Sprint10HTMLResponse
+
+
+def _sprint10_safe_len(name: str) -> int:
+    value = globals().get(name, [])
+    try:
+        return len(value)
+    except Exception:
+        return 0
+
+
+def _sprint10_integrated_missions_summary() -> Dict[str, Any]:
+    try:
+        return _sprint07_mission_summary()
+    except Exception:
+        missions = list(globals().get("_sprint01_missions", {}).values())
+        return {
+            "total": len(missions),
+            "active": len(missions),
+            "completed": 0,
+            "blocked": 0,
+        }
+
+
+def _sprint10_latest_daily_brief() -> Dict[str, Any]:
+    try:
+        return _sprint07_latest_brief()
+    except Exception:
+        return {
+            "commander_intent": "Run Project Salus daily.",
+            "top_priorities": [],
+            "risks": [],
+            "next_actions": [],
+        }
+
+
+@app.get("/api/command/integrated-state")
+async def sprint10_integrated_command_state() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "module": "command_dashboard_integration",
+        "dashboard": "integrated_command",
+        "daily_use": {
+            "mode": "real_daily_use",
+            "daily_brief": _sprint10_latest_daily_brief(),
+            "missions_summary": _sprint10_integrated_missions_summary(),
+            "aar_count": _sprint07_aar_count() if "_sprint07_aar_count" in globals() else 0,
+        },
+        "schoolhouse": {
+            "module": "schoolhouse_learning_coach",
+            "courses_count": _sprint10_safe_len("_schoolhouse_courses"),
+            "study_sessions_count": _sprint10_safe_len("_schoolhouse_study_sessions"),
+            "wrong_answer_reviews_count": _sprint10_safe_len("_schoolhouse_wrong_answer_reviews"),
+            "writing_tasks_count": _sprint10_safe_len("_schoolhouse_writing_tasks"),
+            "primary_focus": "WGU cybersecurity coursework",
+        },
+        "charisma": {
+            "module": "charisma_communication_skill",
+            "self_assessments_count": _sprint10_safe_len("_charisma_self_assessments"),
+            "conversation_aars_count": _sprint10_safe_len("_charisma_conversation_aars"),
+            "primary_focus": "Ethical communication, presence, listening, and trust-building",
+        },
+        "next_actions": [
+            "Review daily-use mission status.",
+            "Open Schoolhouse daily brief.",
+            "Run one charisma drill.",
+            "Close the day with an AAR.",
+        ],
+    }
+
+
+@app.get("/command/integrated", response_class=_Sprint10HTMLResponse)
+async def sprint10_integrated_command_dashboard() -> _Sprint10HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Integrated Command Dashboard</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+          }
+          button, a.button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 4px 4px 4px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 320px;
+            overflow: auto;
+          }
+          .muted {
+            color: #aab7c7;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Integrated Command Dashboard</h1>
+        <p class="muted">Daily Use + Schoolhouse + Charisma</p>
+
+        <div class="panel">
+          <h2>Command State</h2>
+          <button onclick="refreshIntegratedState()">Refresh Integrated State</button>
+          <a class="button" href="/command/daily">Open Daily Use Mode</a>
+          <pre id="integratedState">Loading...</pre>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Daily Use</h2>
+            <p>Mission tracker, daily brief, and AAR loop.</p>
+            <button onclick="loadDailyUse()">Load Daily Use State</button>
+            <pre id="dailyUse">Ready.</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Schoolhouse</h2>
+            <p>WGU learning coach, study brief, quiz mode, and wrong-answer review.</p>
+            <button onclick="loadSchoolhouseBrief()">Load Schoolhouse Brief</button>
+            <pre id="schoolhouse">Ready.</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Charisma</h2>
+            <p>Presence, listening, ethical influence, and communication drills.</p>
+            <button onclick="loadCharismaDrill()">Load Charisma Drill</button>
+            <pre id="charisma">Ready.</pre>
+          </div>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          async function refreshIntegratedState() {
+            show("integratedState", await getJson("/api/command/integrated-state"));
+          }
+
+          async function loadDailyUse() {
+            show("dailyUse", await getJson("/api/daily-use/state"));
+          }
+
+          async function loadSchoolhouseBrief() {
+            show("schoolhouse", await getJson("/api/schoolhouse/daily-brief"));
+          }
+
+          async function loadCharismaDrill() {
+            show("charisma", await getJson("/api/skills/charisma/daily-drill"));
+          }
+
+          refreshIntegratedState();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint10HTMLResponse(content=html)
