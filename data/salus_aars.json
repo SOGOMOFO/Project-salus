@@ -1,0 +1,74 @@
+[
+  {
+    "adjustment": "Connect AAR to dashboard later.",
+    "created_at": "2026-07-04T20:50:13.997835+00:00",
+    "date": "2026-07-04",
+    "id": "5ebf8908-52d8-48e0-a6bf-3842b84643a9",
+    "lesson_learned": "AAR closes the daily operating loop.",
+    "mission": "Build AAR loop",
+    "next_action": "Connect AAR to dashboard later.",
+    "title": "Project Salus AAR",
+    "what_failed": "No failure.",
+    "what_happened": "Created AAR persistence and API routes.",
+    "what_worked": "Service and endpoint structure matched SITREP pattern."
+  },
+  {
+    "adjustment": "Keep local-first storage until database is justified.",
+    "created_at": "2026-07-04T20:50:14.225676+00:00",
+    "date": "2026-07-04",
+    "id": "97dc51b0-04a3-452b-a958-fc717cec28ce",
+    "lesson_learned": "Persist early.",
+    "title": "Project Salus AAR",
+    "what_failed": "Nothing material.",
+    "what_happened": "Sprint 04 added local JSON persistence.",
+    "what_worked": "Batch execution."
+  },
+  {
+    "adjustment": "Connect AAR to dashboard later.",
+    "created_at": "2026-07-04T20:50:35.219420+00:00",
+    "date": "2026-07-04",
+    "id": "30d472e1-437d-4c8d-b4cc-6810637d27d3",
+    "lesson_learned": "AAR closes the daily operating loop.",
+    "mission": "Build AAR loop",
+    "next_action": "Connect AAR to dashboard later.",
+    "title": "Project Salus AAR",
+    "what_failed": "No failure.",
+    "what_happened": "Created AAR persistence and API routes.",
+    "what_worked": "Service and endpoint structure matched SITREP pattern."
+  },
+  {
+    "adjustment": "Keep local-first storage until database is justified.",
+    "created_at": "2026-07-04T20:50:35.450281+00:00",
+    "date": "2026-07-04",
+    "id": "c41091de-3580-474f-ac77-ce3cefb66c09",
+    "lesson_learned": "Persist early.",
+    "title": "Project Salus AAR",
+    "what_failed": "Nothing material.",
+    "what_happened": "Sprint 04 added local JSON persistence.",
+    "what_worked": "Batch execution."
+  },
+  {
+    "adjustment": "Connect AAR to dashboard later.",
+    "created_at": "2026-07-04T20:53:59.670340+00:00",
+    "date": "2026-07-04",
+    "id": "a723f995-4533-4f82-b890-b1ba93e5f519",
+    "lesson_learned": "AAR closes the daily operating loop.",
+    "mission": "Build AAR loop",
+    "next_action": "Connect AAR to dashboard later.",
+    "title": "Project Salus AAR",
+    "what_failed": "No failure.",
+    "what_happened": "Created AAR persistence and API routes.",
+    "what_worked": "Service and endpoint structure matched SITREP pattern."
+  },
+  {
+    "adjustment": "Keep local-first storage until database is justified.",
+    "created_at": "2026-07-04T20:53:59.909558+00:00",
+    "date": "2026-07-04",
+    "id": "bd5275b1-3c15-4fad-840f-b2a00d071313",
+    "lesson_learned": "Persist early.",
+    "title": "Project Salus AAR",
+    "what_failed": "Nothing material.",
+    "what_happened": "Sprint 04 added local JSON persistence.",
+    "what_worked": "Batch execution."
+  }
+]

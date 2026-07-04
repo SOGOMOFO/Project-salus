@@ -1,0 +1,155 @@
+[
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Ship Sprint 01 Core Loop.",
+    "created_at": "2026-07-04T20:50:14.210817+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "234d2276-92f0-4ca9-96ca-254d90af9856",
+    "next_actions": [
+      "Execute pytest"
+    ],
+    "opportunities": [
+      "Daily use validation"
+    ],
+    "risks": [
+      "Scope creep"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Run tests",
+      "Commit changes"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Persist Sprint 04 daily brief.",
+    "created_at": "2026-07-04T20:50:14.224632+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "6c541e95-1464-4d20-85c8-6f14a1fbf738",
+    "next_actions": [
+      "Run tests"
+    ],
+    "opportunities": [],
+    "risks": [
+      "Data loss"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Persistence"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Ship Sprint 01 Core Loop.",
+    "created_at": "2026-07-04T20:50:35.432701+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "3ab10ab7-c810-4c93-8ddf-1ecd4382a66a",
+    "next_actions": [
+      "Execute pytest"
+    ],
+    "opportunities": [
+      "Daily use validation"
+    ],
+    "risks": [
+      "Scope creep"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Run tests",
+      "Commit changes"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Persist Sprint 04 daily brief.",
+    "created_at": "2026-07-04T20:50:35.449095+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "5380059d-87c9-4933-86e0-37f86a3ed95f",
+    "next_actions": [
+      "Run tests"
+    ],
+    "opportunities": [],
+    "risks": [
+      "Data loss"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Persistence"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Use Project Salus daily and complete the command loop.",
+    "created_at": "2026-07-04T20:53:28.997064+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "3fcee111-bbdd-4f8f-8831-62f3d944ceb8",
+    "next_actions": [
+      "Run smoke test",
+      "Commit checkpoint"
+    ],
+    "opportunities": [],
+    "risks": [
+      "Scope creep",
+      "Tool distraction"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Test UI",
+      "Create mission",
+      "Enter AAR"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Ship Sprint 01 Core Loop.",
+    "created_at": "2026-07-04T20:53:59.890643+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "b64a4ddc-171e-4308-a299-97988505d555",
+    "next_actions": [
+      "Execute pytest"
+    ],
+    "opportunities": [
+      "Daily use validation"
+    ],
+    "risks": [
+      "Scope creep"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Run tests",
+      "Commit changes"
+    ]
+  },
+  {
+    "business_status": "not_assessed",
+    "commander_intent": "Persist Sprint 04 daily brief.",
+    "created_at": "2026-07-04T20:53:59.908203+00:00",
+    "date": "2026-07-04",
+    "family_status": "not_assessed",
+    "health_status": "not_assessed",
+    "id": "bdaa2090-70e1-4af9-a21f-8ff13e121eb5",
+    "next_actions": [
+      "Run tests"
+    ],
+    "opportunities": [],
+    "risks": [
+      "Data loss"
+    ],
+    "school_status": "not_assessed",
+    "top_priorities": [
+      "Persistence"
+    ]
+  }
+]

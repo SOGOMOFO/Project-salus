@@ -778,8 +778,47 @@ from typing import Any, Dict
 from uuid import uuid4
 from fastapi import HTTPException as _Sprint01HTTPException
 
-_sprint01_daily_briefs = []
-_sprint01_missions = {}
+# --- Sprint 04 Local JSON Persistence ---
+import json as _sprint04_json
+from pathlib import Path as _Sprint04Path
+
+_sprint04_data_dir = _Sprint04Path("data")
+_sprint04_data_dir.mkdir(exist_ok=True)
+
+_sprint04_daily_briefs_file = _sprint04_data_dir / "salus_daily_briefs.json"
+_sprint04_missions_file = _sprint04_data_dir / "salus_missions.json"
+_sprint04_aars_file = _sprint04_data_dir / "salus_aars.json"
+
+
+def _sprint04_read_json(path, default):
+    try:
+        if path.exists():
+            return _sprint04_json.loads(path.read_text())
+    except Exception:
+        return default
+    return default
+
+
+def _sprint04_write_json(path, data):
+    path.write_text(_sprint04_json.dumps(data, indent=2, sort_keys=True, default=str))
+
+
+_sprint01_daily_briefs = _sprint04_read_json(_sprint04_daily_briefs_file, [])
+_sprint01_missions = _sprint04_read_json(_sprint04_missions_file, {})
+_sprint04_aars = _sprint04_read_json(_sprint04_aars_file, [])
+
+
+def _sprint04_save_daily_briefs():
+    _sprint04_write_json(_sprint04_daily_briefs_file, _sprint01_daily_briefs)
+
+
+def _sprint04_save_missions():
+    _sprint04_write_json(_sprint04_missions_file, _sprint01_missions)
+
+
+def _sprint04_save_aars():
+    _sprint04_write_json(_sprint04_aars_file, _sprint04_aars)
+
 
 
 def _sprint01_now() -> str:
@@ -850,6 +889,7 @@ async def sprint01_create_daily_brief(payload: Dict[str, Any]) -> Dict[str, Any]
     brief["created_at"] = _sprint01_now()
 
     _sprint01_daily_briefs.append(brief)
+    _sprint04_save_daily_briefs()
     return {"daily_brief": brief}
 
 
@@ -871,6 +911,7 @@ async def sprint01_create_mission(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     _sprint01_missions[mission_id] = mission
+    _sprint04_save_missions()
     return {"mission": mission}
 
 
@@ -900,6 +941,7 @@ async def sprint01_update_mission(
 
     mission["updated_at"] = _sprint01_now()
     _sprint01_missions[mission_id] = mission
+    _sprint04_save_missions()
 
     return {"mission": mission}
 
@@ -1460,3 +1502,62 @@ async def sprint03_create_mission(payload: Dict[str, Any]) -> Dict[str, Any]:
 async def sprint03_update_mission(mission_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Local UI compatibility endpoint for updating Sprint 01 missions."""
     return await sprint01_update_mission(mission_id, payload)
+
+
+# --- Sprint 04 Persistent AAR Override ---
+# Remove older /api/aar route handlers so local JSON persistence is authoritative.
+app.router.routes = [
+    route for route in app.router.routes
+    if not (
+        getattr(route, "path", "") in {"/api/aar", "/api/aar/{aar_id}"}
+        and bool(getattr(route, "methods", set()) & {"GET", "POST"})
+    )
+]
+
+
+@app.post("/api/aar")
+async def sprint04_create_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
+    aar_id = str(payload.get("id") or uuid4())
+    record = {
+        "id": aar_id,
+        "date": payload.get("date") or datetime.now(timezone.utc).date().isoformat(),
+        "title": payload.get("title", "Project Salus AAR"),
+        "what_happened": payload.get("what_happened", payload.get("summary", "")),
+        "what_worked": payload.get("what_worked", ""),
+        "what_failed": payload.get("what_failed", ""),
+        "lesson_learned": payload.get("lesson_learned", payload.get("lesson", "")),
+        "adjustment": payload.get("adjustment", payload.get("next_action", "")),
+        "created_at": _sprint01_now(),
+    }
+
+    # Preserve additional caller-provided fields without overwriting core fields.
+    for key, value in payload.items():
+        record.setdefault(key, value)
+
+    _sprint04_aars.append(record)
+    _sprint04_save_aars()
+
+    return {
+        "status": "stored",
+        "aar_id": aar_id,
+        "aar": record,
+    }
+
+
+@app.get("/api/aar")
+async def sprint04_list_aars() -> Dict[str, Any]:
+    return {
+        "aars": _sprint04_aars,
+        "aar_log": _sprint04_aars,
+        "items": _sprint04_aars,
+        "count": len(_sprint04_aars),
+    }
+
+
+@app.get("/api/aar/{aar_id}")
+async def sprint04_get_aar(aar_id: str) -> Dict[str, Any]:
+    for record in _sprint04_aars:
+        if str(record.get("id")) == str(aar_id):
+            return {"aar": record}
+
+    raise _Sprint01HTTPException(status_code=404, detail="AAR not found")
