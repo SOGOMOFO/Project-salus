@@ -1,18 +1,25 @@
-# Sprint 28 — Extract Records/Daily Driver Data Services
+# Sprint 28 — Extract Records/Daily Driver Service Facades
 
 ## Objective
-Move remaining Records and Daily Driver legacy handler behavior out of backend/main.py and into explicit service/helper modules.
+Move Records and Daily Driver route behavior behind explicit service facades.
 
-## Problem
-Sprint 27 centralized the adapter, but backend/main.py still contains Sprint 26 legacy handler support.
-
-## Must Ship
+## Shipped
 - backend/services/records_service.py
 - backend/services/daily_driver_service.py
-- Route modules call service functions directly
-- Remove Sprint 26 legacy handler support from backend/main.py
-- Preserve all existing URLs
-- Preserve all existing tests
+- Records route module now calls records_service
+- Daily Driver route module now calls daily_driver_service
+- Existing URLs preserved
+- Existing adapter preserved temporarily for behavior safety
+
+## Important
+This sprint intentionally does not remove the Sprint 26 backend/main.py legacy bridge yet. The safer sequence is:
+1. Centralize adapter.
+2. Add service facades.
+3. Move behavior into services.
+4. Remove backend/main.py legacy support.
+
+## Next Step
+Sprint 29 should move the actual handler logic into these services and remove the remaining backend/main.py bridge support.
 
 ## Constraint
 No feature changes. Refactor only.

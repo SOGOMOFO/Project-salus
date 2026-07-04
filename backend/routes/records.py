@@ -166,23 +166,23 @@ def render_records_html() -> str:
     </html>
     """
 
-from backend.services.legacy_route_adapter import call_main_handler
+from backend.services.records_service import archive_record, delete_record, get_records_page, get_records_state
 
 @router.get("/api/command/records")
 async def sprint26_records_sprint16_record_management_state_bridge() -> Any:
-    return await call_main_handler("sprint16_record_management_state")
+    return await get_records_state()
 
 
 @router.post("/api/command/records/archive")
 async def sprint26_records_sprint16_archive_record_bridge(request: Request) -> Any:
-    return await call_main_handler("sprint16_archive_record", request)
+    return await archive_record(request)
 
 
 @router.post("/api/command/records/delete")
 async def sprint26_records_sprint16_delete_record_bridge(request: Request) -> Any:
-    return await call_main_handler("sprint16_delete_record", request)
+    return await delete_record(request)
 
 
 @router.get("/command/records", response_class=HTMLResponse)
 async def sprint26_records_sprint16_record_management_page_bridge() -> Any:
-    return await call_main_handler("sprint16_record_management_page")
+    return await get_records_page()

@@ -34,8 +34,8 @@ def test_sprint_27_route_modules_do_not_define_duplicate_bridge():
 
     assert "async def _call_legacy_handler" not in records_text
     assert "async def _call_legacy_handler" not in daily_driver_text
-    assert "call_main_handler" in records_text
-    assert "call_main_handler" in daily_driver_text
+    assert ("call_main_handler" in records_text) or ("backend.services.records_service" in records_text)
+    assert ("call_main_handler" in daily_driver_text) or ("backend.services.daily_driver_service" in daily_driver_text)
 
 
 def test_sprint_27_route_modules_keep_future_import_first():

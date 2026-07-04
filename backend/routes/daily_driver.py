@@ -127,13 +127,13 @@ def render_daily_driver_html() -> str:
     </html>
     """
 
-from backend.services.legacy_route_adapter import call_main_handler
+from backend.services.daily_driver_service import get_daily_driver_page, get_daily_driver_state
 
 @router.get("/api/command/daily-driver-state")
 async def sprint26_daily_driver_sprint15_daily_driver_state_bridge() -> Any:
-    return await call_main_handler("sprint15_daily_driver_state")
+    return await get_daily_driver_state()
 
 
 @router.get("/command/daily-driver", response_class=HTMLResponse)
 async def sprint26_daily_driver_sprint15_daily_driver_page_bridge() -> Any:
-    return await call_main_handler("sprint15_daily_driver_page")
+    return await get_daily_driver_page()
