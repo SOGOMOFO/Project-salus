@@ -9,7 +9,6 @@ client = TestClient(app)
 
 def test_sprint_06_dev_reset_requires_confirmation():
     response = client.post("/api/dev/reset", json={})
-
     assert response.status_code == 400
 
 
