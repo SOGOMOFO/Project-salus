@@ -902,3 +902,405 @@ async def sprint01_update_mission(
     _sprint01_missions[mission_id] = mission
 
     return {"mission": mission}
+
+
+# --- Sprint 02 Commander UI ---
+from fastapi.responses import HTMLResponse as _Sprint02HTMLResponse
+
+
+@app.get("/api/core/missions")
+async def sprint02_list_core_missions() -> Dict[str, Any]:
+    return {"missions": list(_sprint01_missions.values())}
+
+
+@app.get("/command", response_class=_Sprint02HTMLResponse)
+async def sprint02_command_ui() -> str:
+    return """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Salus Command OS</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0d1b2e;
+      --panel2: #13243b;
+      --gold: #d4af37;
+      --text: #f4f7fb;
+      --muted: #9fb0c5;
+      --danger: #ff6b6b;
+      --ok: #3ddc97;
+      --border: #223753;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #050c16;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--gold);
+      font-size: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    main {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+    }
+
+    .wide {
+      grid-column: span 2;
+    }
+
+    h2 {
+      margin: 0 0 12px 0;
+      color: var(--gold);
+      font-size: 18px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      margin-top: 5px;
+      padding: 10px;
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 80px;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--gold);
+      border: none;
+      color: #0a0f18;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      margin-right: 8px;
+    }
+
+    pre {
+      background: #050c16;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      color: #dce7f5;
+      border: 1px solid var(--border);
+      max-height: 320px;
+    }
+
+    .mission {
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .mission-title {
+      font-weight: bold;
+      color: var(--text);
+    }
+
+    .mission-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #1c3353;
+      color: var(--text);
+      font-size: 12px;
+      margin-right: 6px;
+    }
+
+    .ok {
+      color: var(--ok);
+    }
+
+    .danger {
+      color: var(--danger);
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .wide {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Salus Command OS</h1>
+      <div class="sub">Sprint 02 — Local Commander Dashboard UI</div>
+    </div>
+    <div class="sub">Human in command. AI as force multiplier.</div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Commander Dashboard</h2>
+      <button onclick="loadAll()">Refresh Dashboard</button>
+      <pre id="dashboard">Loading...</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Daily Commander Brief</h2>
+      <label>Commander Intent</label>
+      <textarea id="brief_intent">Use Project Salus daily.</textarea>
+
+      <label>Top Priorities, one per line</label>
+      <textarea id="brief_priorities">Test UI
+Prepare Sprint 02
+Avoid scope creep</textarea>
+
+      <label>Risks, one per line</label>
+      <textarea id="brief_risks">Scope creep
+Tool distraction</textarea>
+
+      <label>Next Actions, one per line</label>
+      <textarea id="brief_actions">Create mission
+Run tests
+Commit checkpoint</textarea>
+
+      <button onclick="createBrief()">Save Daily Brief</button>
+      <pre id="brief_result">No brief saved yet.</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Create Mission</h2>
+      <label>Title</label>
+      <input id="mission_title" value="Sprint 02 Dashboard UI" />
+
+      <label>Intent</label>
+      <textarea id="mission_intent">Create usable visual command dashboard.</textarea>
+
+      <label>Priority</label>
+      <select id="mission_priority">
+        <option>high</option>
+        <option>medium</option>
+        <option>low</option>
+      </select>
+
+      <label>Status</label>
+      <select id="mission_status">
+        <option>planned</option>
+        <option>in_progress</option>
+        <option>blocked</option>
+        <option>completed</option>
+      </select>
+
+      <label>Risk</label>
+      <select id="mission_risk">
+        <option>low</option>
+        <option>medium</option>
+        <option>high</option>
+      </select>
+
+      <label>Next Action</label>
+      <input id="mission_next_action" value="Define UI scope" />
+
+      <button onclick="createMission()">Create Mission</button>
+      <pre id="mission_result">No mission created yet.</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Active Missions</h2>
+      <button onclick="loadMissions()">Refresh Missions</button>
+      <div id="missions">Loading...</div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Sprint Guardrails</h2>
+      <pre>
+DO BUILD:
+- Dashboard summary
+- Daily brief view/create
+- Mission create/list/update
+- Basic local usability
+
+DO NOT BUILD YET:
+- Agent fleets
+- Supabase
+- Vector DB
+- Multi-user
+- Public product
+- Payments
+- Enterprise portal
+- Frontend polish rabbit hole
+      </pre>
+    </section>
+  </main>
+
+  <script>
+    function lines(id) {
+      return document.getElementById(id).value
+        .split("\\n")
+        .map(x => x.trim())
+        .filter(Boolean);
+    }
+
+    async function jsonFetch(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { raw: text, status: response.status };
+      }
+    }
+
+    async function loadDashboard() {
+      const data = await jsonFetch("/api/dashboard");
+      document.getElementById("dashboard").textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function createBrief() {
+      const payload = {
+        commander_intent: document.getElementById("brief_intent").value,
+        top_priorities: lines("brief_priorities"),
+        risks: lines("brief_risks"),
+        next_actions: lines("brief_actions")
+      };
+
+      const data = await jsonFetch("/api/daily-brief", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+
+      document.getElementById("brief_result").textContent = JSON.stringify(data, null, 2);
+      await loadDashboard();
+    }
+
+    async function createMission() {
+      const payload = {
+        title: document.getElementById("mission_title").value,
+        intent: document.getElementById("mission_intent").value,
+        priority: document.getElementById("mission_priority").value,
+        status: document.getElementById("mission_status").value,
+        risk: document.getElementById("mission_risk").value,
+        next_action: document.getElementById("mission_next_action").value
+      };
+
+      const data = await jsonFetch("/missions", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+
+      document.getElementById("mission_result").textContent = JSON.stringify(data, null, 2);
+      await loadAll();
+    }
+
+    async function updateMission(id, status) {
+      await jsonFetch(`/missions/${id}`, {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({status: status})
+      });
+
+      await loadAll();
+    }
+
+    function missionHtml(mission) {
+      return `
+        <div class="mission">
+          <div class="mission-title">${mission.title || "Untitled mission"}</div>
+          <div class="mission-meta">
+            <span class="badge">Status: ${mission.status}</span>
+            <span class="badge">Priority: ${mission.priority}</span>
+            <span class="badge">Risk: ${mission.risk}</span>
+          </div>
+          <div class="mission-meta">Intent: ${mission.intent || ""}</div>
+          <div class="mission-meta">Next action: ${mission.next_action || ""}</div>
+          <button class="secondary" onclick="updateMission('${mission.id}', 'in_progress')">Mark In Progress</button>
+          <button class="secondary" onclick="updateMission('${mission.id}', 'completed')">Mark Complete</button>
+        </div>
+      `;
+    }
+
+    async function loadMissions() {
+      const data = await jsonFetch("/api/core/missions");
+      const missions = data.missions || [];
+
+      document.getElementById("missions").innerHTML =
+        missions.length
+          ? missions.map(missionHtml).join("")
+          : "<div class='mission-meta'>No missions yet.</div>";
+    }
+
+    async function loadAll() {
+      await loadDashboard();
+      await loadMissions();
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>
+    """
