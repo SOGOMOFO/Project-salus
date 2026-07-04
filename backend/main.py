@@ -770,3 +770,135 @@ def api_dashboard_health():
             "next_recommended_action": snapshot["next_recommended_action"],
         },
     }
+
+
+# --- Sprint 01 Core Loop compatibility endpoints ---
+from datetime import datetime, timezone
+from typing import Any, Dict
+from uuid import uuid4
+from fastapi import HTTPException as _Sprint01HTTPException
+
+_sprint01_daily_briefs = []
+_sprint01_missions = {}
+
+
+def _sprint01_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _sprint01_default_daily_brief() -> Dict[str, Any]:
+    return {
+        "id": "default",
+        "date": datetime.now(timezone.utc).date().isoformat(),
+        "commander_intent": "Maintain mission focus and execute the core loop.",
+        "top_priorities": [],
+        "risks": [],
+        "opportunities": [],
+        "health_status": "not_assessed",
+        "business_status": "not_assessed",
+        "school_status": "not_assessed",
+        "family_status": "not_assessed",
+        "next_actions": [],
+        "created_at": _sprint01_now(),
+    }
+
+
+@app.get("/api/dashboard")
+async def sprint01_dashboard() -> Dict[str, Any]:
+    missions = list(_sprint01_missions.values())
+    completed_statuses = {"complete", "completed", "done"}
+    completed = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() in completed_statuses
+    ]
+    active = [mission for mission in missions if mission not in completed]
+
+    latest_brief = (
+        _sprint01_daily_briefs[-1]
+        if _sprint01_daily_briefs
+        else _sprint01_default_daily_brief()
+    )
+
+    return {
+        "status": "operational",
+        "missions_summary": {
+            "total": len(missions),
+            "active": len(active),
+            "completed": len(completed),
+        },
+        "daily_brief": latest_brief,
+        "aar_count": 0,
+        "judgment_ready": True,
+    }
+
+
+@app.get("/api/daily-brief")
+async def sprint01_get_daily_brief() -> Dict[str, Any]:
+    brief = (
+        _sprint01_daily_briefs[-1]
+        if _sprint01_daily_briefs
+        else _sprint01_default_daily_brief()
+    )
+    return {"daily_brief": brief}
+
+
+@app.post("/api/daily-brief")
+async def sprint01_create_daily_brief(payload: Dict[str, Any]) -> Dict[str, Any]:
+    brief = _sprint01_default_daily_brief()
+    brief.update(payload)
+    brief["id"] = str(payload.get("id") or uuid4())
+    brief["created_at"] = _sprint01_now()
+
+    _sprint01_daily_briefs.append(brief)
+    return {"daily_brief": brief}
+
+
+@app.post("/missions")
+async def sprint01_create_mission(payload: Dict[str, Any]) -> Dict[str, Any]:
+    mission_id = str(payload.get("id") or uuid4())
+
+    mission = {
+        "id": mission_id,
+        "title": payload.get("title", "Untitled mission"),
+        "intent": payload.get("intent", ""),
+        "priority": payload.get("priority", "medium"),
+        "status": payload.get("status", "planned"),
+        "risk": payload.get("risk", "not_assessed"),
+        "next_action": payload.get("next_action", ""),
+        "due_date": payload.get("due_date"),
+        "created_at": _sprint01_now(),
+        "updated_at": _sprint01_now(),
+    }
+
+    _sprint01_missions[mission_id] = mission
+    return {"mission": mission}
+
+
+@app.patch("/missions/{mission_id}")
+async def sprint01_update_mission(
+    mission_id: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    if mission_id not in _sprint01_missions:
+        raise _Sprint01HTTPException(status_code=404, detail="Mission not found")
+
+    mission = _sprint01_missions[mission_id]
+
+    allowed_fields = {
+        "title",
+        "intent",
+        "priority",
+        "status",
+        "risk",
+        "next_action",
+        "due_date",
+    }
+
+    for key, value in payload.items():
+        if key in allowed_fields:
+            mission[key] = value
+
+    mission["updated_at"] = _sprint01_now()
+    _sprint01_missions[mission_id] = mission
+
+    return {"mission": mission}
