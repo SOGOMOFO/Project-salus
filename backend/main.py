@@ -1638,3 +1638,63 @@ def _sprint05_prioritize_api_missions_route() -> None:
 
 
 _sprint05_prioritize_api_missions_route()
+
+
+
+# --- Sprint 06 Data Hygiene and Reset Controls ---
+@app.post("/api/dev/reset")
+async def sprint06_dev_reset(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Local development reset for Sprint runtime data.
+
+    This endpoint is intentionally guarded by a confirmation phrase.
+    It is for local/dev/test use only and should not be exposed as a production admin feature.
+    """
+    confirmation = str(payload.get("confirmation", "")).strip()
+
+    if confirmation != "RESET_PROJECT_SALUS_DEV_DATA":
+        raise _Sprint01HTTPException(
+            status_code=400,
+            detail="Reset confirmation required.",
+        )
+
+    # Clear in-memory Sprint runtime stores when present.
+    if "_sprint01_daily_briefs" in globals():
+        _sprint01_daily_briefs.clear()
+
+    if "_sprint01_missions" in globals():
+        _sprint01_missions.clear()
+
+    if "_sprint04_aars" in globals():
+        _sprint04_aars.clear()
+
+    # Clear known runtime persistence files when helper functions exist.
+    cleared_files = []
+
+    known_files = [
+        "sprint01_daily_briefs.json",
+        "sprint01_missions.json",
+        "sprint04_missions.json",
+        "sprint04_aars.json",
+    ]
+
+    save_json = globals().get("_sprint01_save_json")
+
+    if save_json:
+        for filename in known_files:
+            try:
+                save_json(filename, [])
+                cleared_files.append(filename)
+            except Exception:
+                pass
+
+    return {
+        "status": "ok",
+        "reset": True,
+        "cleared": {
+            "daily_briefs": True,
+            "missions": True,
+            "aars": True,
+            "files": cleared_files,
+        },
+    }
