@@ -2224,3 +2224,202 @@ async def schoolhouse_writing_task(payload: Dict[str, Any]) -> Dict[str, Any]:
         "section_plan": section_plan,
         "rule": "Answer the rubric directly. Do not write extra material that does not earn points.",
     }
+
+
+
+# --- Sprint 09 Charisma and Communication Skill Module ---
+_charisma_self_assessments = []
+_charisma_conversation_aars = []
+
+
+def _charisma_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _charisma_score(payload: Dict[str, Any]) -> Dict[str, Any]:
+    fields = [
+        "presence",
+        "clarity",
+        "listening",
+        "emotional_control",
+        "confidence",
+        "empathy",
+        "framing",
+        "trust_building",
+        "ethical_alignment",
+    ]
+
+    scores = {}
+    for field in fields:
+        try:
+            value = int(payload.get(field, 0) or 0)
+        except Exception:
+            value = 0
+        scores[field] = max(0, min(10, value))
+
+    average = round(sum(scores.values()) / len(fields), 2)
+
+    weakest_field = min(scores, key=scores.get)
+    strongest_field = max(scores, key=scores.get)
+
+    if average >= 8:
+        level = "strong"
+    elif average >= 5:
+        level = "developing"
+    else:
+        level = "needs_foundation"
+
+    return {
+        "scores": scores,
+        "average": average,
+        "level": level,
+        "strongest_field": strongest_field,
+        "weakest_field": weakest_field,
+        "recommendation": f"Focus next on {weakest_field.replace('_', ' ')}.",
+    }
+
+
+@app.get("/api/skills/charisma")
+async def charisma_status() -> Dict[str, Any]:
+    return {
+        "status": "ok",
+        "module": "charisma_communication_skill",
+        "definition": "Charisma is ethical communication with presence, clarity, confidence, emotional intelligence, timing, and trust-building behavior.",
+        "doctrine": "Charisma is not manipulation. It is ethical influence, leadership communication, active listening, emotional intelligence, and social calibration.",
+        "skill_stack": [
+            "presence",
+            "voice",
+            "listening",
+            "emotional_intelligence",
+            "storytelling",
+            "rapport",
+            "framing",
+            "social_calibration",
+            "leadership_communication",
+            "ethical_influence",
+        ],
+        "use_cases": [
+            "WGU instructor communication",
+            "cybersecurity interviews",
+            "GovCon client conversations",
+            "Echo Seven sales calls",
+            "family conversations",
+            "leadership moments",
+            "podcasting and YouTube presence",
+            "networking",
+        ],
+        "self_assessments_count": len(_charisma_self_assessments),
+        "conversation_aars_count": len(_charisma_conversation_aars),
+    }
+
+
+@app.post("/api/skills/charisma/self-assessment")
+async def charisma_self_assessment(payload: Dict[str, Any]) -> Dict[str, Any]:
+    score = _charisma_score(payload)
+
+    assessment = {
+        "id": str(payload.get("id") or uuid4()),
+        "context": payload.get("context", "general"),
+        "scores": score["scores"],
+        "average": score["average"],
+        "level": score["level"],
+        "strongest_field": score["strongest_field"],
+        "weakest_field": score["weakest_field"],
+        "recommendation": score["recommendation"],
+        "created_at": _charisma_now(),
+    }
+
+    _charisma_self_assessments.append(assessment)
+
+    return {
+        "status": "ok",
+        "assessment": assessment,
+        "rule": "Charisma improves through repetition, feedback, and ethical self-control.",
+    }
+
+
+@app.get("/api/skills/charisma/daily-drill")
+async def charisma_daily_drill() -> Dict[str, Any]:
+    drills = [
+        {
+            "name": "60-second calm voice drill",
+            "objective": "Practice steady pacing, lower tension, and clear tone.",
+            "steps": [
+                "Stand or sit upright.",
+                "Breathe slowly for 10 seconds.",
+                "Say your main point in one sentence.",
+                "Repeat it slower with one deliberate pause.",
+            ],
+        },
+        {
+            "name": "Active listening drill",
+            "objective": "Build trust by reflecting before responding.",
+            "steps": [
+                "Ask one clear question.",
+                "Let the other person finish.",
+                "Summarize what they said in one sentence.",
+                "Ask if you understood correctly.",
+            ],
+        },
+        {
+            "name": "Command clarity drill",
+            "objective": "Communicate direction without rambling.",
+            "steps": [
+                "State the outcome.",
+                "State the reason.",
+                "State the next action.",
+                "Stop talking.",
+            ],
+        },
+        {
+            "name": "Reframe drill",
+            "objective": "Turn a tense conversation into a solvable problem.",
+            "steps": [
+                "Name the issue without blame.",
+                "State the shared objective.",
+                "Offer one next step.",
+                "Ask for confirmation.",
+            ],
+        },
+    ]
+
+    day_index = datetime.now(timezone.utc).timetuple().tm_yday % len(drills)
+    drill = drills[day_index]
+
+    return {
+        "status": "ok",
+        "drill": drill,
+        "duration_minutes": 5,
+        "instruction": "Do the drill once today before an important conversation.",
+    }
+
+
+@app.post("/api/skills/charisma/conversation-aar")
+async def charisma_conversation_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
+    score_payload = payload.get("scorecard", {})
+    score = _charisma_score(score_payload)
+
+    aar = {
+        "id": str(payload.get("id") or uuid4()),
+        "objective": payload.get("objective", ""),
+        "audience": payload.get("audience", ""),
+        "what_i_said": payload.get("what_i_said", ""),
+        "how_they_responded": payload.get("how_they_responded", ""),
+        "did_i_listen_well": payload.get("did_i_listen_well", ""),
+        "did_i_stay_calm": payload.get("did_i_stay_calm", ""),
+        "did_i_build_trust": payload.get("did_i_build_trust", ""),
+        "what_to_improve": payload.get("what_to_improve", ""),
+        "score": score,
+        "created_at": _charisma_now(),
+    }
+
+    if not aar["what_to_improve"]:
+        aar["what_to_improve"] = score["recommendation"]
+
+    _charisma_conversation_aars.append(aar)
+
+    return {
+        "status": "ok",
+        "conversation_aar": aar,
+        "teaching_point": "The goal is not to win every conversation. The goal is to communicate clearly, listen accurately, and build trust ethically.",
+    }
