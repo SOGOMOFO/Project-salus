@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+import inspect
+from typing import Any, Callable, get_origin
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-
 
 router = APIRouter(tags=["command-daily-driver"])
 
@@ -128,12 +128,58 @@ def render_daily_driver_html() -> str:
     </html>
     """
 
+async def _call_legacy_handler(handler_name: str, request: Request | None = None) -> Any:
+    import backend.main as legacy_main
+
+    handler = getattr(legacy_main, handler_name)
+    signature = inspect.signature(handler)
+    parameters = list(signature.parameters.values())
+
+    if not parameters:
+        result = handler()
+    else:
+        payload: dict[str, Any] = {}
+        if request is not None:
+            try:
+                payload = await request.json()
+            except Exception:
+                payload = {}
+
+        if len(parameters) == 1:
+            parameter = parameters[0]
+            annotation = parameter.annotation
+            origin = get_origin(annotation)
+
+            if annotation is inspect.Signature.empty or annotation is Any or annotation is dict or origin is dict:
+                argument = payload
+            else:
+                try:
+                    argument = annotation(**payload)
+                except Exception:
+                    argument = payload
+
+            result = handler(argument)
+        else:
+            kwargs = {}
+            for parameter in parameters:
+                if parameter.name in payload:
+                    kwargs[parameter.name] = payload[parameter.name]
+                elif parameter.default is not inspect.Signature.empty:
+                    kwargs[parameter.name] = parameter.default
+                else:
+                    kwargs[parameter.name] = None
+            result = handler(**kwargs)
+
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
 
 @router.get("/api/command/daily-driver-state")
-async def daily_driver_state_api() -> dict[str, Any]:
-    return build_daily_driver_payload()
+async def sprint26_daily_driver_sprint15_daily_driver_state_bridge() -> Any:
+    return await _call_legacy_handler("sprint15_daily_driver_state")
 
 
 @router.get("/command/daily-driver", response_class=HTMLResponse)
-async def daily_driver_page() -> HTMLResponse:
-    return HTMLResponse(content=render_daily_driver_html())
+async def sprint26_daily_driver_sprint15_daily_driver_page_bridge() -> Any:
+    return await _call_legacy_handler("sprint15_daily_driver_page")

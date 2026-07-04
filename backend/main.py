@@ -3391,9 +3391,31 @@ async def sprint14_home_page() -> _Sprint14HTMLResponse:
 async def sprint14_command_home_page() -> _Sprint14HTMLResponse:
     return _Sprint14HTMLResponse(content=_sprint14_launcher_html("Project Salus — Command Home"))
 
+# --- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---
+from backend.routes.dashboard_index import router as _sprint23_dashboard_index_router
+from backend.routes.readiness import router as _sprint23_readiness_router
+
+app.include_router(_sprint23_dashboard_index_router)
+app.include_router(_sprint23_readiness_router)
 
 
-# --- Sprint 15 Daily Driver Polish ---
+# --- Sprint 24 Extract Navigation and Workflow Routers ---
+from backend.routes.navigation import router as _sprint24_navigation_router
+from backend.routes.workflows import router as _sprint24_workflows_router
+
+app.include_router(_sprint24_navigation_router)
+app.include_router(_sprint24_workflows_router)
+
+
+# --- Sprint 26 Wire Records and Daily Driver Routers ---
+from backend.routes.records import router as _sprint26_records_router
+from backend.routes.daily_driver import router as _sprint26_daily_driver_router
+
+app.include_router(_sprint26_records_router)
+app.include_router(_sprint26_daily_driver_router)
+
+
+# Sprint 26 Legacy Handler Bridge — Daily Driver
 from fastapi.responses import HTMLResponse as _Sprint15HTMLResponse
 
 
@@ -3412,7 +3434,7 @@ def _sprint15_empty_state(count: int, empty_message: str, active_message: str) -
     return active_message
 
 
-@app.get("/api/command/daily-driver-state")
+# @app.get("/api/command/daily-driver-state")
 async def sprint15_daily_driver_state() -> Dict[str, Any]:
     missions_count = _sprint15_safe_count("_sprint01_missions")
     daily_briefs_count = _sprint15_safe_count("_sprint01_daily_briefs")
@@ -3499,7 +3521,7 @@ async def sprint15_daily_driver_state() -> Dict[str, Any]:
     }
 
 
-@app.get("/command/daily-driver", response_class=_Sprint15HTMLResponse)
+# @app.get("/command/daily-driver", response_class=_Sprint15HTMLResponse)
 async def sprint15_daily_driver_page() -> _Sprint15HTMLResponse:
     html = """
     <!doctype html>
@@ -3649,8 +3671,7 @@ async def sprint15_daily_driver_page() -> _Sprint15HTMLResponse:
     return _Sprint15HTMLResponse(content=html)
 
 
-
-# --- Sprint 16 Record Management Controls ---
+# Sprint 26 Legacy Handler Bridge — Record Management
 from fastapi.responses import HTMLResponse as _Sprint16HTMLResponse
 from fastapi import HTTPException as _Sprint16HTTPException
 
@@ -3727,7 +3748,7 @@ def _sprint16_save_group(group: str) -> None:
         pass
 
 
-@app.get("/api/command/records")
+# @app.get("/api/command/records")
 async def sprint16_record_management_state() -> Dict[str, Any]:
     groups = _sprint16_record_groups()
     counts = {}
@@ -3759,7 +3780,7 @@ async def sprint16_record_management_state() -> Dict[str, Any]:
     }
 
 
-@app.post("/api/command/records/archive")
+# @app.post("/api/command/records/archive")
 async def sprint16_archive_record(payload: Dict[str, Any]) -> Dict[str, Any]:
     group = payload.get("group")
     record_id = payload.get("id")
@@ -3790,7 +3811,7 @@ async def sprint16_archive_record(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@app.post("/api/command/records/delete")
+# @app.post("/api/command/records/delete")
 async def sprint16_delete_record(payload: Dict[str, Any]) -> Dict[str, Any]:
     group = payload.get("group")
     record_id = payload.get("id")
@@ -3822,7 +3843,7 @@ async def sprint16_delete_record(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@app.get("/command/records", response_class=_Sprint16HTMLResponse)
+# @app.get("/command/records", response_class=_Sprint16HTMLResponse)
 async def sprint16_record_management_page() -> _Sprint16HTMLResponse:
     html = """
     <!doctype html>
@@ -4005,18 +4026,4 @@ async def sprint16_record_management_page() -> _Sprint16HTMLResponse:
     """
     return _Sprint16HTMLResponse(content=html)
 
-# --- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---
-from backend.routes.dashboard_index import router as _sprint23_dashboard_index_router
-from backend.routes.readiness import router as _sprint23_readiness_router
-
-app.include_router(_sprint23_dashboard_index_router)
-app.include_router(_sprint23_readiness_router)
-
-
-# --- Sprint 24 Extract Navigation and Workflow Routers ---
-from backend.routes.navigation import router as _sprint24_navigation_router
-from backend.routes.workflows import router as _sprint24_workflows_router
-
-app.include_router(_sprint24_navigation_router)
-app.include_router(_sprint24_workflows_router)
 

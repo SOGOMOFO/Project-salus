@@ -2,9 +2,9 @@
 
 ## Summary
 - Source: `backend/main.py`
-- Route count: 90
-- Sprint marker count: 19
-- Line count: 4022
+- Route count: 84
+- Sprint marker count: 18
+- Line count: 4029
 - Route source count: 7
 
 ## Sprint Markers
@@ -23,10 +23,9 @@
 - --- Sprint 11 Operational Dashboard Controls ---
 - --- Sprint 13 Operational Review and History Dashboard ---
 - --- Sprint 14 Command Launcher and Navigation System ---
-- --- Sprint 15 Daily Driver Polish ---
-- --- Sprint 16 Record Management Controls ---
 - --- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---
 - --- Sprint 24 Extract Navigation and Workflow Routers ---
+- --- Sprint 26 Wire Records and Daily Driver Routers ---
 
 ## Routes
 
@@ -41,19 +40,15 @@
 | POST | `/api/aar` | `sprint04_create_aar` | `backend/main.py` | `app` |
 | GET | `/api/aar/{aar_id}` | `api_get_aar` | `backend/main.py` | `app` |
 | GET | `/api/aar/{aar_id}` | `sprint04_get_aar` | `backend/main.py` | `app` |
-| GET | `/api/command/daily-driver-state` | `daily_driver_state_api` | `backend/routes/daily_driver.py` | `router` |
-| GET | `/api/command/daily-driver-state` | `sprint15_daily_driver_state` | `backend/main.py` | `app` |
+| GET | `/api/command/daily-driver-state` | `sprint26_daily_driver_sprint15_daily_driver_state_bridge` | `backend/routes/daily_driver.py` | `router` |
 | GET | `/api/command/dashboard-index` | `dashboard_index_api` | `backend/routes/dashboard_index.py` | `router` |
 | GET | `/api/command/health` | `sprint14_command_health` | `backend/main.py` | `app` |
 | GET | `/api/command/integrated-state` | `sprint10_integrated_command_state` | `backend/main.py` | `app` |
 | GET | `/api/command/navigation` | `navigation_api` | `backend/routes/navigation.py` | `router` |
 | GET | `/api/command/readiness` | `readiness_api` | `backend/routes/readiness.py` | `router` |
-| GET | `/api/command/records` | `records_api` | `backend/routes/records.py` | `router` |
-| GET | `/api/command/records` | `sprint16_record_management_state` | `backend/main.py` | `app` |
-| POST | `/api/command/records/archive` | `records_archive_api` | `backend/routes/records.py` | `router` |
-| POST | `/api/command/records/archive` | `sprint16_archive_record` | `backend/main.py` | `app` |
-| POST | `/api/command/records/delete` | `records_delete_api` | `backend/routes/records.py` | `router` |
-| POST | `/api/command/records/delete` | `sprint16_delete_record` | `backend/main.py` | `app` |
+| GET | `/api/command/records` | `sprint26_records_sprint16_record_management_state_bridge` | `backend/routes/records.py` | `router` |
+| POST | `/api/command/records/archive` | `sprint26_records_sprint16_archive_record_bridge` | `backend/routes/records.py` | `router` |
+| POST | `/api/command/records/delete` | `sprint26_records_sprint16_delete_record_bridge` | `backend/routes/records.py` | `router` |
 | GET | `/api/command/review-state` | `sprint13_review_state` | `backend/main.py` | `app` |
 | GET | `/api/commander/brief` | `api_commander_brief` | `backend/main.py` | `app` |
 | GET | `/api/commander/next-action` | `api_commander_next_action` | `backend/main.py` | `app` |
@@ -100,16 +95,14 @@
 | POST | `/auth` | `auth` | `backend/main.py` | `app` |
 | GET | `/command` | `sprint03_command_page` | `backend/main.py` | `app` |
 | GET | `/command/daily` | `sprint07_daily_command_page` | `backend/main.py` | `app` |
-| GET | `/command/daily-driver` | `daily_driver_page` | `backend/routes/daily_driver.py` | `router` |
-| GET | `/command/daily-driver` | `sprint15_daily_driver_page` | `backend/main.py` | `app` |
+| GET | `/command/daily-driver` | `sprint26_daily_driver_sprint15_daily_driver_page_bridge` | `backend/routes/daily_driver.py` | `router` |
 | GET | `/command/dashboard-index` | `dashboard_index_page` | `backend/routes/dashboard_index.py` | `router` |
 | GET | `/command/home` | `sprint14_command_home_page` | `backend/main.py` | `app` |
 | GET | `/command/integrated` | `sprint10_integrated_command_dashboard` | `backend/main.py` | `app` |
 | GET | `/command/navigation` | `navigation_page` | `backend/routes/navigation.py` | `router` |
 | GET | `/command/ops` | `sprint11_operational_dashboard` | `backend/main.py` | `app` |
 | GET | `/command/readiness` | `readiness_page` | `backend/routes/readiness.py` | `router` |
-| GET | `/command/records` | `records_page` | `backend/routes/records.py` | `router` |
-| GET | `/command/records` | `sprint16_record_management_page` | `backend/main.py` | `app` |
+| GET | `/command/records` | `sprint26_records_sprint16_record_management_page_bridge` | `backend/routes/records.py` | `router` |
 | GET | `/command/review` | `sprint13_review_dashboard` | `backend/main.py` | `app` |
 | GET | `/command/workflows` | `workflows_page` | `backend/routes/workflows.py` | `router` |
 | GET | `/core/memory/status` | `core_memory_status` | `backend/main.py` | `app` |

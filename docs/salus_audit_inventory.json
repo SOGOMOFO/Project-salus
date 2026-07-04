@@ -4,10 +4,10 @@
   "source": "backend/main.py",
   "metrics": {
     "path": "backend/main.py",
-    "line_count": 4022,
-    "character_count": 132051,
-    "sprint_marker_count": 19,
-    "route_count": 90,
+    "line_count": 4029,
+    "character_count": 132384,
+    "sprint_marker_count": 18,
+    "route_count": 84,
     "route_source_count": 7
   },
   "sprint_markers": [
@@ -26,10 +26,9 @@
     "--- Sprint 11 Operational Dashboard Controls ---",
     "--- Sprint 13 Operational Review and History Dashboard ---",
     "--- Sprint 14 Command Launcher and Navigation System ---",
-    "--- Sprint 15 Daily Driver Polish ---",
-    "--- Sprint 16 Record Management Controls ---",
     "--- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---",
-    "--- Sprint 24 Extract Navigation and Workflow Routers ---"
+    "--- Sprint 24 Extract Navigation and Workflow Routers ---",
+    "--- Sprint 26 Wire Records and Daily Driver Routers ---"
   ],
   "routes": [
     {
@@ -100,14 +99,7 @@
       "path": "/api/command/daily-driver-state",
       "source_file": "backend/routes/daily_driver.py",
       "decorator_owner": "router",
-      "handler": "daily_driver_state_api"
-    },
-    {
-      "method": "GET",
-      "path": "/api/command/daily-driver-state",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint15_daily_driver_state"
+      "handler": "sprint26_daily_driver_sprint15_daily_driver_state_bridge"
     },
     {
       "method": "GET",
@@ -149,42 +141,21 @@
       "path": "/api/command/records",
       "source_file": "backend/routes/records.py",
       "decorator_owner": "router",
-      "handler": "records_api"
-    },
-    {
-      "method": "GET",
-      "path": "/api/command/records",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint16_record_management_state"
+      "handler": "sprint26_records_sprint16_record_management_state_bridge"
     },
     {
       "method": "POST",
       "path": "/api/command/records/archive",
       "source_file": "backend/routes/records.py",
       "decorator_owner": "router",
-      "handler": "records_archive_api"
-    },
-    {
-      "method": "POST",
-      "path": "/api/command/records/archive",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint16_archive_record"
+      "handler": "sprint26_records_sprint16_archive_record_bridge"
     },
     {
       "method": "POST",
       "path": "/api/command/records/delete",
       "source_file": "backend/routes/records.py",
       "decorator_owner": "router",
-      "handler": "records_delete_api"
-    },
-    {
-      "method": "POST",
-      "path": "/api/command/records/delete",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint16_delete_record"
+      "handler": "sprint26_records_sprint16_delete_record_bridge"
     },
     {
       "method": "GET",
@@ -513,14 +484,7 @@
       "path": "/command/daily-driver",
       "source_file": "backend/routes/daily_driver.py",
       "decorator_owner": "router",
-      "handler": "daily_driver_page"
-    },
-    {
-      "method": "GET",
-      "path": "/command/daily-driver",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint15_daily_driver_page"
+      "handler": "sprint26_daily_driver_sprint15_daily_driver_page_bridge"
     },
     {
       "method": "GET",
@@ -569,14 +533,7 @@
       "path": "/command/records",
       "source_file": "backend/routes/records.py",
       "decorator_owner": "router",
-      "handler": "records_page"
-    },
-    {
-      "method": "GET",
-      "path": "/command/records",
-      "source_file": "backend/main.py",
-      "decorator_owner": "app",
-      "handler": "sprint16_record_management_page"
+      "handler": "sprint26_records_sprint16_record_management_page_bridge"
     },
     {
       "method": "GET",
@@ -663,7 +620,7 @@
       "handler": "system_status"
     }
   ],
-  "route_count": 90,
-  "sprint_marker_count": 19,
+  "route_count": 84,
+  "sprint_marker_count": 18,
   "recommendation": "Continue modular route extraction one route group at a time with tests green after every extraction."
 }

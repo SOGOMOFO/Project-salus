@@ -1,22 +1,24 @@
 # Sprint 26 — Wire Records and Daily Driver Routers
 
 ## Objective
-Wire the extracted Record Management and Daily Driver routers into the live FastAPI app and remove duplicate blocks from backend/main.py.
+Wire the extracted Record Management and Daily Driver routers into the live FastAPI app.
 
-## Problem
-Sprint 25 created safe extracted route modules, but backend/main.py still serves the live records and daily driver routes.
+## Shipped
+- Included extracted records router
+- Included extracted daily_driver router
+- Removed duplicate direct route registration blocks from backend/main.py
+- Preserved existing URLs
+- Preserved legacy behavior through a temporary handler bridge
+- Updated route inventory
+- Added wiring tests
 
-## Must Ship
-- Include extracted records router
-- Include extracted daily_driver router
-- Preserve existing URLs
-- Remove duplicate Sprint 15 and Sprint 16 route blocks from backend/main.py
-- Preserve all existing tests
-- Add route behavior tests
-
-## Candidate Route Blocks
-- Sprint 15 Daily Driver Polish
-- Sprint 16 Record Management Controls
+## Preserved URLs
+- /api/command/records
+- /api/command/records/archive
+- /api/command/records/delete
+- /command/records
+- /api/command/daily-driver-state
+- /command/daily-driver
 
 ## Constraint
 No feature changes. Refactor only.
