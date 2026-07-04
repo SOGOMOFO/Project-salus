@@ -4004,3 +4004,298 @@ async def sprint16_record_management_page() -> _Sprint16HTMLResponse:
     </html>
     """
     return _Sprint16HTMLResponse(content=html)
+
+
+
+# --- Sprint 17 Daily Workflow Automation ---
+from fastapi.responses import HTMLResponse as _Sprint17HTMLResponse
+
+
+def _sprint17_count(name: str) -> int:
+    value = globals().get(name, [])
+    if isinstance(value, dict):
+        return len(value)
+    if isinstance(value, list):
+        return len(value)
+    return 0
+
+
+def _sprint17_link(label: str, href: str, action: str, reason: str) -> Dict[str, Any]:
+    return {
+        "label": label,
+        "href": href,
+        "action": action,
+        "reason": reason,
+    }
+
+
+def _sprint17_operational_counts() -> Dict[str, int]:
+    return {
+        "missions": _sprint17_count("_sprint01_missions"),
+        "daily_briefs": _sprint17_count("_sprint01_daily_briefs"),
+        "aars": _sprint17_count("_sprint04_aars"),
+        "schoolhouse_courses": _sprint17_count("_schoolhouse_courses"),
+        "schoolhouse_study_sessions": _sprint17_count("_schoolhouse_study_sessions"),
+        "charisma_self_assessments": _sprint17_count("_charisma_self_assessments"),
+        "charisma_conversation_aars": _sprint17_count("_charisma_conversation_aars"),
+    }
+
+
+@app.get("/api/workflows/morning")
+async def sprint17_morning_workflow() -> Dict[str, Any]:
+    counts = _sprint17_operational_counts()
+
+    checklist = [
+        _sprint17_link(
+            "Check system health",
+            "/api/command/health",
+            "Confirm Project Salus is running.",
+            "System status comes before mission execution.",
+        ),
+        _sprint17_link(
+            "Open daily driver",
+            "/command/daily-driver",
+            "Review the daily state and callouts.",
+            "This is the fastest command view.",
+        ),
+        _sprint17_link(
+            "Create or review daily brief",
+            "/command/ops",
+            "Set commander intent, priorities, risks, and next actions.",
+            "This frames the day.",
+        ),
+        _sprint17_link(
+            "Choose one main mission",
+            "/command/ops",
+            "Pick the single highest-leverage mission.",
+            "One main mission prevents scattered execution.",
+        ),
+        _sprint17_link(
+            "Run Schoolhouse block",
+            "/command/ops",
+            "Log one focused study session if school is active today.",
+            "School is an active capability mission.",
+        ),
+        _sprint17_link(
+            "Run Charisma drill",
+            "/api/skills/charisma/daily-drill",
+            "Complete one communication drill before important conversations.",
+            "Communication skill compounds across school, business, and family.",
+        ),
+    ]
+
+    return {
+        "status": "ok",
+        "workflow": "morning",
+        "module": "daily_workflow_automation",
+        "intent": "Start the day with command clarity and one main mission.",
+        "estimated_minutes": 10,
+        "counts": counts,
+        "checklist": checklist,
+        "first_action": "Open /command/daily-driver.",
+        "primary_page": "/command/workflows",
+    }
+
+
+@app.get("/api/workflows/evening")
+async def sprint17_evening_workflow() -> Dict[str, Any]:
+    counts = _sprint17_operational_counts()
+
+    checklist = [
+        _sprint17_link(
+            "Open review dashboard",
+            "/command/review",
+            "Review missions, Schoolhouse data, Charisma records, and AARs.",
+            "Review turns activity into learning.",
+        ),
+        _sprint17_link(
+            "Review records",
+            "/command/records",
+            "Archive or delete bad/demo records if needed.",
+            "Clean data keeps Salus useful.",
+        ),
+        _sprint17_link(
+            "Close mission loop",
+            "/command/review",
+            "Identify what moved, what stalled, and tomorrow’s next action.",
+            "This prevents drift.",
+        ),
+        _sprint17_link(
+            "Close Schoolhouse loop",
+            "/command/ops",
+            "Log study work, weak areas, or wrong answers.",
+            "Learning requires evidence and repetition.",
+        ),
+        _sprint17_link(
+            "Close communication loop",
+            "/command/ops",
+            "Log any important conversation AAR.",
+            "Charisma improves through review.",
+        ),
+        _sprint17_link(
+            "Log AAR",
+            "/command/ops",
+            "Record the day’s lesson and tomorrow’s first action.",
+            "The AAR converts today into better judgment.",
+        ),
+    ]
+
+    return {
+        "status": "ok",
+        "workflow": "evening",
+        "module": "daily_workflow_automation",
+        "intent": "Close the day, capture lessons, and set tomorrow’s first action.",
+        "estimated_minutes": 10,
+        "counts": counts,
+        "checklist": checklist,
+        "final_action": "Set tomorrow’s first next action.",
+        "primary_page": "/command/workflows",
+    }
+
+
+@app.get("/api/workflows/today")
+async def sprint17_today_workflows() -> Dict[str, Any]:
+    morning = await sprint17_morning_workflow()
+    evening = await sprint17_evening_workflow()
+
+    return {
+        "status": "ok",
+        "module": "daily_workflow_automation",
+        "page": "/command/workflows",
+        "morning": morning,
+        "evening": evening,
+        "recommended_use": {
+            "morning": "Run before starting work.",
+            "evening": "Run before shutting down.",
+        },
+    }
+
+
+@app.get("/command/workflows", response_class=_Sprint17HTMLResponse)
+async def sprint17_workflows_page() -> _Sprint17HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Daily Workflows</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 { color: #d7b46a; }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          a.button, button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .muted { color: #aab7c7; }
+          li { margin-bottom: 8px; }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Daily Workflow Automation</h1>
+        <p class="muted">Guided morning and evening operating sequence.</p>
+
+        <div class="panel">
+          <h2>Navigation</h2>
+          <a class="button" href="/command/daily-driver">Daily Driver</a>
+          <a class="button" href="/command/ops">Ops Dashboard</a>
+          <a class="button" href="/command/review">Review Dashboard</a>
+          <a class="button" href="/command/records">Record Management</a>
+          <a class="button" href="/command/home">Command Home</a>
+          <button onclick="loadWorkflows()">Refresh Workflows</button>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Morning Workflow</h2>
+            <ol id="morningList"></ol>
+            <pre id="morningRaw">Loading...</pre>
+          </div>
+
+          <div class="panel">
+            <h2>Evening Closeout</h2>
+            <ol id="eveningList"></ol>
+            <pre id="eveningRaw">Loading...</pre>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Full Workflow State</h2>
+          <pre id="state">Loading...</pre>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function show(id, data) {
+            document.getElementById(id).textContent = JSON.stringify(data, null, 2);
+          }
+
+          function renderList(id, checklist) {
+            const list = document.getElementById(id);
+            list.innerHTML = "";
+            checklist.forEach(item => {
+              const li = document.createElement("li");
+              const link = document.createElement("a");
+              link.href = item.href;
+              link.textContent = item.label;
+              link.className = "button";
+              const text = document.createElement("div");
+              text.textContent = item.action + " Reason: " + item.reason;
+              li.appendChild(link);
+              li.appendChild(text);
+              list.appendChild(li);
+            });
+          }
+
+          async function loadWorkflows() {
+            const state = await getJson("/api/workflows/today");
+            show("state", state);
+            show("morningRaw", state.morning);
+            show("eveningRaw", state.evening);
+            renderList("morningList", state.morning.checklist);
+            renderList("eveningList", state.evening.checklist);
+          }
+
+          loadWorkflows();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint17HTMLResponse(content=html)
