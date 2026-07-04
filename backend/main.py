@@ -384,6 +384,7 @@ def api_create_aar(payload: dict):
 
     return {
         "status": "ok",
+        "status": "ok",
         "aar": aar,
     }
 
@@ -1538,7 +1539,7 @@ async def sprint04_create_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
     _sprint04_save_aars()
 
     return {
-        "status": "stored",
+        "status": "ok",
         "aar_id": aar_id,
         "aar": record,
     }
@@ -1546,8 +1547,7 @@ async def sprint04_create_aar(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.get("/api/aar")
 async def sprint04_list_aars() -> Dict[str, Any]:
-    return {
-        "aars": _sprint04_aars,
+    return {"status": "ok", "aars": _sprint04_aars,
         "aar_log": _sprint04_aars,
         "items": _sprint04_aars,
         "count": len(_sprint04_aars),
@@ -1558,6 +1558,6 @@ async def sprint04_list_aars() -> Dict[str, Any]:
 async def sprint04_get_aar(aar_id: str) -> Dict[str, Any]:
     for record in _sprint04_aars:
         if str(record.get("id")) == str(aar_id):
-            return {"aar": record}
+            return {"status": "ok", "aar": record}
 
     raise _Sprint01HTTPException(status_code=404, detail="AAR not found")
