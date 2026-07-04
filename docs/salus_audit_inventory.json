@@ -4,10 +4,11 @@
   "source": "backend/main.py",
   "metrics": {
     "path": "backend/main.py",
-    "line_count": 5269,
-    "character_count": 173323,
-    "sprint_marker_count": 21,
-    "route_count": 84
+    "line_count": 4589,
+    "character_count": 150552,
+    "sprint_marker_count": 20,
+    "route_count": 84,
+    "route_source_count": 3
   },
   "sprint_markers": [
     "--- Sprint 01 Core Loop compatibility endpoints ---",
@@ -29,432 +30,599 @@
     "--- Sprint 16 Record Management Controls ---",
     "--- Sprint 17 Daily Workflow Automation ---",
     "--- Sprint 18 Navigation Unification and UX Cleanup ---",
-    "--- Sprint 19 System Status and Readiness Scoring ---",
-    "--- Sprint 20 Dashboard Index and Final Local MVP Checkpoint ---"
+    "--- Sprint 23 Wire Extracted Dashboard and Readiness Routers ---"
   ],
   "routes": [
     {
       "method": "GET",
       "path": "/",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "home"
     },
     {
       "method": "GET",
       "path": "/",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint14_home_page"
     },
     {
       "method": "GET",
       "path": "/agents",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "agents"
     },
     {
       "method": "GET",
       "path": "/api/aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_list_aars"
     },
     {
       "method": "GET",
       "path": "/api/aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint04_list_aars"
     },
     {
       "method": "POST",
       "path": "/api/aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_create_aar"
     },
     {
       "method": "POST",
       "path": "/api/aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint04_create_aar"
     },
     {
       "method": "GET",
       "path": "/api/aar/{aar_id}",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_get_aar"
     },
     {
       "method": "GET",
       "path": "/api/aar/{aar_id}",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint04_get_aar"
     },
     {
       "method": "GET",
       "path": "/api/command/daily-driver-state",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint15_daily_driver_state"
     },
     {
       "method": "GET",
       "path": "/api/command/dashboard-index",
-      "handler": "sprint20_dashboard_index"
+      "source_file": "backend/routes/dashboard_index.py",
+      "decorator_owner": "router",
+      "handler": "dashboard_index_api"
     },
     {
       "method": "GET",
       "path": "/api/command/health",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint14_command_health"
     },
     {
       "method": "GET",
       "path": "/api/command/integrated-state",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint10_integrated_command_state"
     },
     {
       "method": "GET",
       "path": "/api/command/navigation",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint18_command_navigation"
     },
     {
       "method": "GET",
       "path": "/api/command/readiness",
-      "handler": "sprint19_readiness"
+      "source_file": "backend/routes/readiness.py",
+      "decorator_owner": "router",
+      "handler": "readiness_api"
     },
     {
       "method": "GET",
       "path": "/api/command/records",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint16_record_management_state"
     },
     {
       "method": "POST",
       "path": "/api/command/records/archive",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint16_archive_record"
     },
     {
       "method": "POST",
       "path": "/api/command/records/delete",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint16_delete_record"
     },
     {
       "method": "GET",
       "path": "/api/command/review-state",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint13_review_state"
     },
     {
       "method": "GET",
       "path": "/api/commander/brief",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_commander_brief"
     },
     {
       "method": "GET",
       "path": "/api/commander/next-action",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_commander_next_action"
     },
     {
       "method": "GET",
       "path": "/api/commander/today",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_commander_today"
     },
     {
       "method": "GET",
       "path": "/api/core/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint02_list_core_missions"
     },
     {
       "method": "GET",
       "path": "/api/daily-brief",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint01_get_daily_brief"
     },
     {
       "method": "POST",
       "path": "/api/daily-brief",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint01_create_daily_brief"
     },
     {
       "method": "POST",
       "path": "/api/daily-use/aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint07_create_daily_use_aar"
     },
     {
       "method": "POST",
       "path": "/api/daily-use/brief",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint07_create_daily_use_brief"
     },
     {
       "method": "GET",
       "path": "/api/daily-use/state",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint07_daily_use_state"
     },
     {
       "method": "POST",
       "path": "/api/daily/closeout",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_daily_closeout"
     },
     {
       "method": "GET",
       "path": "/api/daily/history",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_daily_history"
     },
     {
       "method": "POST",
       "path": "/api/daily/start",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_daily_start"
     },
     {
       "method": "GET",
       "path": "/api/dashboard",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint01_dashboard"
     },
     {
       "method": "GET",
       "path": "/api/dashboard/daily",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_dashboard_daily"
     },
     {
       "method": "GET",
       "path": "/api/dashboard/health",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_dashboard_health"
     },
     {
       "method": "GET",
       "path": "/api/dashboard/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_dashboard_missions"
     },
     {
       "method": "GET",
       "path": "/api/dashboard/summary",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_dashboard_summary"
     },
     {
       "method": "POST",
       "path": "/api/dev/reset",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint06_dev_reset"
     },
     {
       "method": "POST",
       "path": "/api/judgment",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "create_judgment"
     },
     {
       "method": "GET",
       "path": "/api/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint03_list_missions"
     },
     {
       "method": "GET",
       "path": "/api/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint05_list_missions"
     },
     {
       "method": "POST",
       "path": "/api/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint03_create_mission"
     },
     {
       "method": "PATCH",
       "path": "/api/missions/{mission_id}",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint03_update_mission"
     },
     {
       "method": "GET",
       "path": "/api/mvp/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_mvp_status"
     },
     {
       "method": "POST",
       "path": "/api/schoolhouse/course",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_create_course"
     },
     {
       "method": "GET",
       "path": "/api/schoolhouse/courses",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_list_courses"
     },
     {
       "method": "GET",
       "path": "/api/schoolhouse/daily-brief",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_daily_brief"
     },
     {
       "method": "POST",
       "path": "/api/schoolhouse/quiz",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_quiz"
     },
     {
       "method": "GET",
       "path": "/api/schoolhouse/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_status"
     },
     {
       "method": "POST",
       "path": "/api/schoolhouse/study-session",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_study_session"
     },
     {
       "method": "POST",
       "path": "/api/schoolhouse/writing-task",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_writing_task"
     },
     {
       "method": "POST",
       "path": "/api/schoolhouse/wrong-answer-review",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "schoolhouse_wrong_answer_review"
     },
     {
       "method": "GET",
       "path": "/api/sitrep",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_list_sitreps"
     },
     {
       "method": "POST",
       "path": "/api/sitrep",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_create_sitrep"
     },
     {
       "method": "GET",
       "path": "/api/sitrep/{sitrep_id}",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "api_get_sitrep"
     },
     {
       "method": "GET",
       "path": "/api/skills/charisma",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "charisma_status"
     },
     {
       "method": "POST",
       "path": "/api/skills/charisma/conversation-aar",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "charisma_conversation_aar"
     },
     {
       "method": "GET",
       "path": "/api/skills/charisma/daily-drill",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "charisma_daily_drill"
     },
     {
       "method": "POST",
       "path": "/api/skills/charisma/self-assessment",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "charisma_self_assessment"
     },
     {
       "method": "GET",
       "path": "/api/workflows/evening",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint17_evening_workflow"
     },
     {
       "method": "GET",
       "path": "/api/workflows/morning",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint17_morning_workflow"
     },
     {
       "method": "GET",
       "path": "/api/workflows/today",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint17_today_workflows"
     },
     {
       "method": "POST",
       "path": "/auth",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "auth"
     },
     {
       "method": "GET",
       "path": "/command",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint03_command_page"
     },
     {
       "method": "GET",
       "path": "/command/daily",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint07_daily_command_page"
     },
     {
       "method": "GET",
       "path": "/command/daily-driver",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint15_daily_driver_page"
     },
     {
       "method": "GET",
       "path": "/command/dashboard-index",
-      "handler": "sprint20_dashboard_index_page"
+      "source_file": "backend/routes/dashboard_index.py",
+      "decorator_owner": "router",
+      "handler": "dashboard_index_page"
     },
     {
       "method": "GET",
       "path": "/command/home",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint14_command_home_page"
     },
     {
       "method": "GET",
       "path": "/command/integrated",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint10_integrated_command_dashboard"
     },
     {
       "method": "GET",
       "path": "/command/navigation",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint18_navigation_page"
     },
     {
       "method": "GET",
       "path": "/command/ops",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint11_operational_dashboard"
     },
     {
       "method": "GET",
       "path": "/command/readiness",
-      "handler": "sprint19_readiness_page"
+      "source_file": "backend/routes/readiness.py",
+      "decorator_owner": "router",
+      "handler": "readiness_page"
     },
     {
       "method": "GET",
       "path": "/command/records",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint16_record_management_page"
     },
     {
       "method": "GET",
       "path": "/command/review",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint13_review_dashboard"
     },
     {
       "method": "GET",
       "path": "/command/workflows",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint17_workflows_page"
     },
     {
       "method": "GET",
       "path": "/core/memory/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "core_memory_status"
     },
     {
       "method": "GET",
       "path": "/core/plugins/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "core_plugins_status"
     },
     {
       "method": "GET",
       "path": "/health",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "health"
     },
     {
       "method": "GET",
       "path": "/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "missions"
     },
     {
       "method": "POST",
       "path": "/missions",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint01_create_mission"
     },
     {
       "method": "PATCH",
       "path": "/missions/{mission_id}",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sprint01_update_mission"
     },
     {
       "method": "GET",
       "path": "/sitreps",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "sitreps"
     },
     {
       "method": "POST",
       "path": "/sitreps",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "create_sitrep"
     },
     {
       "method": "GET",
       "path": "/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "mission_control_status"
     },
     {
       "method": "GET",
       "path": "/system/status",
+      "source_file": "backend/main.py",
+      "decorator_owner": "app",
       "handler": "system_status"
     }
   ],
   "route_count": 84,
-  "sprint_marker_count": 21,
-  "recommendation": "Begin modular route extraction only after this inventory is committed and tests are green."
+  "sprint_marker_count": 20,
+  "recommendation": "Continue modular route extraction one route group at a time with tests green after every extraction."
 }

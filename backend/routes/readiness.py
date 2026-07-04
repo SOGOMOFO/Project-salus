@@ -189,6 +189,7 @@ def build_readiness_payload(
     }
 
 
+
 def render_readiness_html() -> str:
     return """
     <!doctype html>
@@ -199,23 +200,59 @@ def render_readiness_html() -> str:
       <body>
         <h1>Project Salus — Readiness</h1>
         <p>Fast status view for the system, daily loop, Schoolhouse, Charisma, and data hygiene.</p>
+
+        <h2>Navigation</h2>
         <a href="/command/workflows">Workflows</a>
-        <a href="/command/navigation">Navigation</a>
+        <a href="/command/navigation">Navigation Hub</a>
         <a href="/command/daily-driver">Daily Driver</a>
         <a href="/command/ops">Ops</a>
         <a href="/command/review">Review</a>
         <a href="/command/records">Records</a>
+
         <h2>Overall Readiness</h2>
-        <pre id="state">Readiness module extracted.</pre>
+        <pre id="summary">Loading readiness...</pre>
+
+        <h2>System</h2>
+        <pre id="system">Loading system...</pre>
+
+        <h2>Daily Operations</h2>
+        <pre id="daily_operations">Loading daily operations...</pre>
+
+        <h2>Schoolhouse</h2>
+        <pre id="schoolhouse">Loading Schoolhouse...</pre>
+
+        <h2>Charisma</h2>
+        <pre id="charisma">Loading Charisma...</pre>
+
+        <h2>Data Hygiene</h2>
+        <pre id="data_hygiene">Loading data hygiene...</pre>
+
+        <h2>Full Readiness State</h2>
+        <pre id="state">Loading state...</pre>
+
         <script>
           fetch("/api/command/readiness")
             .then(response => response.json())
-            .then(data => document.getElementById("state").textContent = JSON.stringify(data, null, 2));
+            .then(data => {
+              document.getElementById("summary").textContent = JSON.stringify({
+                score: data.score,
+                max_score: data.max_score,
+                readiness_level: data.readiness_level,
+                next_action: data.next_action,
+                top_recommendations: data.top_recommendations
+              }, null, 2);
+
+              document.getElementById("system").textContent = JSON.stringify(data.components.system, null, 2);
+              document.getElementById("daily_operations").textContent = JSON.stringify(data.components.daily_operations, null, 2);
+              document.getElementById("schoolhouse").textContent = JSON.stringify(data.components.schoolhouse, null, 2);
+              document.getElementById("charisma").textContent = JSON.stringify(data.components.charisma, null, 2);
+              document.getElementById("data_hygiene").textContent = JSON.stringify(data.components.data_hygiene, null, 2);
+              document.getElementById("state").textContent = JSON.stringify(data, null, 2);
+            });
         </script>
       </body>
     </html>
     """
-
 
 @router.get("/api/command/readiness")
 async def readiness_api() -> dict[str, Any]:

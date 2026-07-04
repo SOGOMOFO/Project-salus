@@ -176,6 +176,7 @@ def build_dashboard_index_payload(count_provider: CountProvider = default_count_
     }
 
 
+
 def render_dashboard_index_html() -> str:
     return """
     <!doctype html>
@@ -186,22 +187,58 @@ def render_dashboard_index_html() -> str:
       <body>
         <h1>Project Salus — Dashboard Index</h1>
         <p>Final local MVP capability inventory and page index.</p>
+
+        <h2>Primary Launch Points</h2>
         <a href="/command/readiness">Readiness</a>
         <a href="/command/navigation">Navigation</a>
         <a href="/command/workflows">Daily Workflows</a>
+        <a href="/command/daily-driver">Daily Driver</a>
         <a href="/command/ops">Ops</a>
         <a href="/command/review">Review</a>
         <a href="/command/records">Records</a>
-        <pre id="state">Dashboard index module extracted.</pre>
+
+        <h2>Local MVP Status</h2>
+        <pre id="summary">Loading dashboard index...</pre>
+
+        <h2>Capabilities</h2>
+        <pre id="capabilities">Loading capabilities...</pre>
+
+        <h2>Primary Pages</h2>
+        <pre id="pages">Loading pages...</pre>
+
+        <h2>Local Scripts</h2>
+        <pre id="scripts">Loading scripts...</pre>
+
+        <h2>Data Counts</h2>
+        <pre id="counts">Loading counts...</pre>
+
+        <h2>Full Dashboard Index State</h2>
+        <pre id="state">Loading state...</pre>
+
         <script>
           fetch("/api/command/dashboard-index")
             .then(response => response.json())
-            .then(data => document.getElementById("state").textContent = JSON.stringify(data, null, 2));
+            .then(data => {
+              document.getElementById("summary").textContent = JSON.stringify({
+                project: data.project,
+                local_mvp_status: data.local_mvp_status,
+                capability_count: data.capability_count,
+                recommended_start_page: data.recommended_start_page,
+                recommended_daily_page: data.recommended_daily_page,
+                recommended_status_page: data.recommended_status_page,
+                next_action: data.next_action
+              }, null, 2);
+
+              document.getElementById("capabilities").textContent = JSON.stringify(data.capabilities, null, 2);
+              document.getElementById("pages").textContent = JSON.stringify(data.primary_pages, null, 2);
+              document.getElementById("scripts").textContent = JSON.stringify(data.local_scripts, null, 2);
+              document.getElementById("counts").textContent = JSON.stringify(data.data_counts, null, 2);
+              document.getElementById("state").textContent = JSON.stringify(data, null, 2);
+            });
         </script>
       </body>
     </html>
     """
-
 
 @router.get("/api/command/dashboard-index")
 async def dashboard_index_api() -> dict[str, Any]:
