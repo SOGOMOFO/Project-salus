@@ -867,7 +867,7 @@ async def sprint01_dashboard() -> Dict[str, Any]:
             "completed": len(completed),
         },
         "daily_brief": latest_brief,
-        "aar_count": 0,
+        "aar_count": len(globals().get("_sprint04_aars", [])) or len(_sprint01_load_json(_SPRINT01_AARS_FILE, [])),
         "judgment_ready": True,
     }
 
@@ -1561,3 +1561,80 @@ async def sprint04_get_aar(aar_id: str) -> Dict[str, Any]:
             return {"status": "ok", "aar": record}
 
     raise _Sprint01HTTPException(status_code=404, detail="AAR not found")
+
+
+# --- Sprint 05 Mission/Data Contract compatibility endpoints ---
+@app.get("/api/missions")
+async def sprint05_list_missions():
+    """Public Sprint 05 mission list contract.
+
+    Keeps legacy GET /missions behavior untouched.
+    """
+    missions = list(_sprint01_missions.values())
+    return {
+        "status": "ok",
+        "count": len(missions),
+        "missions": missions,
+    }
+
+
+# --- Sprint compatibility JSON helpers ---
+from pathlib import Path as _SprintPath
+import json as _sprint_json
+
+_SPRINT_DATA_DIR = _SprintPath("data")
+_SPRINT_DATA_DIR.mkdir(exist_ok=True)
+_SPRINT01_AARS_FILE = "sprint04_aars.json"
+
+
+def _sprint01_load_json(filename, default=None):
+    """Load Sprint JSON data safely."""
+    path = _SPRINT_DATA_DIR / filename
+    if default is None:
+        default = []
+    if not path.exists():
+        return default
+    try:
+        return _sprint_json.loads(path.read_text())
+    except Exception:
+        return default
+
+
+def _sprint01_save_json(filename, data):
+    """Save Sprint JSON data safely."""
+    path = _SPRINT_DATA_DIR / filename
+    path.write_text(_sprint_json.dumps(data, indent=2, default=str))
+    return data
+
+
+# --- Sprint 05 route priority fix ---
+def _sprint05_prioritize_api_missions_route() -> None:
+    target_route = None
+
+    for route in list(app.router.routes):
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set())
+        endpoint = getattr(route, "endpoint", None)
+        endpoint_name = getattr(endpoint, "__name__", "")
+
+        if path == "/api/missions" and "GET" in methods and endpoint_name == "sprint05_list_missions":
+            target_route = route
+            break
+
+    if target_route is None:
+        return
+
+    app.router.routes.remove(target_route)
+
+    for index, route in enumerate(app.router.routes):
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set())
+
+        if path == "/api/missions" and "GET" in methods:
+            app.router.routes.insert(index, target_route)
+            return
+
+    app.router.routes.append(target_route)
+
+
+_sprint05_prioritize_api_missions_route()
