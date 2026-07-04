@@ -4299,3 +4299,282 @@ async def sprint17_workflows_page() -> _Sprint17HTMLResponse:
     </html>
     """
     return _Sprint17HTMLResponse(content=html)
+
+
+
+# --- Sprint 18 Navigation Unification and UX Cleanup ---
+from fastapi.responses import HTMLResponse as _Sprint18HTMLResponse
+
+
+def _sprint18_navigation_groups() -> Dict[str, Any]:
+    return {
+        "daily_operations": [
+            {
+                "label": "Daily Workflows",
+                "href": "/command/workflows",
+                "description": "Guided morning and evening workflow. This is the primary daily operating guide.",
+                "priority": 1,
+            },
+            {
+                "label": "Daily Driver",
+                "href": "/command/daily-driver",
+                "description": "One-page morning and evening command flow.",
+                "priority": 2,
+            },
+            {
+                "label": "Operational Dashboard",
+                "href": "/command/ops",
+                "description": "Create daily briefs, missions, school entries, and charisma AARs.",
+                "priority": 3,
+            },
+            {
+                "label": "Daily Mode",
+                "href": "/command/daily",
+                "description": "Earlier daily-use mode page.",
+                "priority": 4,
+            },
+        ],
+        "review_and_records": [
+            {
+                "label": "Review Dashboard",
+                "href": "/command/review",
+                "description": "Review stored missions, Schoolhouse data, Charisma data, and AAR history.",
+                "priority": 1,
+            },
+            {
+                "label": "Record Management",
+                "href": "/command/records",
+                "description": "Archive or delete bad/demo records.",
+                "priority": 2,
+            },
+            {
+                "label": "Integrated Dashboard",
+                "href": "/command/integrated",
+                "description": "Integrated state view for Daily Use, Schoolhouse, and Charisma.",
+                "priority": 3,
+            },
+        ],
+        "capability_modules": [
+            {
+                "label": "Schoolhouse Status",
+                "href": "/api/schoolhouse/status",
+                "description": "Learning coach module status.",
+                "priority": 1,
+            },
+            {
+                "label": "Schoolhouse Daily Brief",
+                "href": "/api/schoolhouse/daily-brief",
+                "description": "School-focused daily brief.",
+                "priority": 2,
+            },
+            {
+                "label": "Charisma Status",
+                "href": "/api/skills/charisma",
+                "description": "Communication and charisma skill module status.",
+                "priority": 3,
+            },
+            {
+                "label": "Charisma Daily Drill",
+                "href": "/api/skills/charisma/daily-drill",
+                "description": "Daily communication drill.",
+                "priority": 4,
+            },
+        ],
+        "system": [
+            {
+                "label": "Command Home",
+                "href": "/command/home",
+                "description": "Project Salus command launcher.",
+                "priority": 1,
+            },
+            {
+                "label": "Health",
+                "href": "/api/command/health",
+                "description": "System health and page inventory.",
+                "priority": 2,
+            },
+            {
+                "label": "Navigation API",
+                "href": "/api/command/navigation",
+                "description": "Central navigation inventory.",
+                "priority": 3,
+            },
+        ],
+    }
+
+
+@app.get("/api/command/navigation")
+async def sprint18_command_navigation() -> Dict[str, Any]:
+    groups = _sprint18_navigation_groups()
+
+    primary_pages = {
+        "workflows": "/command/workflows",
+        "daily_driver": "/command/daily-driver",
+        "command_home": "/command/home",
+        "ops": "/command/ops",
+        "review": "/command/review",
+        "records": "/command/records",
+        "integrated": "/command/integrated",
+        "daily": "/command/daily",
+        "navigation": "/command/navigation",
+    }
+
+    return {
+        "status": "ok",
+        "module": "navigation_unification_ux_cleanup",
+        "primary_daily_page": "/command/workflows",
+        "primary_pages": primary_pages,
+        "groups": groups,
+        "recommended_start": {
+            "morning": "/command/workflows",
+            "daily_execution": "/command/daily-driver",
+            "data_entry": "/command/ops",
+            "review": "/command/review",
+            "cleanup": "/command/records",
+        },
+        "next_action": "Use /command/workflows as the primary daily operating guide.",
+    }
+
+
+@app.get("/command/navigation", response_class=_Sprint18HTMLResponse)
+async def sprint18_navigation_page() -> _Sprint18HTMLResponse:
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Project Salus — Navigation Hub</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background: #07111f;
+            color: #f4f7fb;
+            margin: 0;
+            padding: 32px;
+          }
+          h1, h2 {
+            color: #d7b46a;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 18px;
+          }
+          .panel {
+            border: 1px solid #28405f;
+            border-radius: 12px;
+            padding: 20px;
+            background: #0d1c2f;
+            margin-bottom: 18px;
+          }
+          a.button, button {
+            display: inline-block;
+            background: #d7b46a;
+            color: #07111f;
+            border: none;
+            padding: 11px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            margin: 5px 5px 5px 0;
+          }
+          pre {
+            white-space: pre-wrap;
+            background: #081525;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #28405f;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .muted {
+            color: #aab7c7;
+          }
+          .small {
+            font-size: 14px;
+            color: #aab7c7;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Project Salus — Navigation Hub</h1>
+        <p class="muted">One place to reach every major Project Salus page.</p>
+
+        <div class="panel">
+          <h2>Start Here</h2>
+          <a class="button" href="/command/workflows">Primary Daily Guide</a>
+          <a class="button" href="/command/daily-driver">Daily Driver</a>
+          <a class="button" href="/command/ops">Operational Dashboard</a>
+          <a class="button" href="/command/review">Review Dashboard</a>
+          <a class="button" href="/command/records">Record Management</a>
+          <button onclick="loadNavigation()">Refresh Navigation State</button>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h2>Daily Operations</h2>
+            <div id="daily_operations">Loading...</div>
+          </div>
+
+          <div class="panel">
+            <h2>Review and Records</h2>
+            <div id="review_and_records">Loading...</div>
+          </div>
+
+          <div class="panel">
+            <h2>Capability Modules</h2>
+            <div id="capability_modules">Loading...</div>
+          </div>
+
+          <div class="panel">
+            <h2>System</h2>
+            <div id="system">Loading...</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Navigation State</h2>
+          <pre id="state">Loading...</pre>
+        </div>
+
+        <script>
+          async function getJson(path) {
+            const res = await fetch(path);
+            return await res.json();
+          }
+
+          function renderGroup(id, items) {
+            const target = document.getElementById(id);
+            target.innerHTML = "";
+            items.forEach(item => {
+              const wrapper = document.createElement("div");
+              const link = document.createElement("a");
+              link.href = item.href;
+              link.className = "button";
+              link.textContent = item.label;
+
+              const desc = document.createElement("div");
+              desc.className = "small";
+              desc.textContent = item.description;
+
+              wrapper.appendChild(link);
+              wrapper.appendChild(desc);
+              target.appendChild(wrapper);
+            });
+          }
+
+          async function loadNavigation() {
+            const state = await getJson("/api/command/navigation");
+            document.getElementById("state").textContent = JSON.stringify(state, null, 2);
+            renderGroup("daily_operations", state.groups.daily_operations);
+            renderGroup("review_and_records", state.groups.review_and_records);
+            renderGroup("capability_modules", state.groups.capability_modules);
+            renderGroup("system", state.groups.system);
+          }
+
+          loadNavigation();
+        </script>
+      </body>
+    </html>
+    """
+    return _Sprint18HTMLResponse(content=html)

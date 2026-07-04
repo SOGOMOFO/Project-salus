@@ -7,14 +7,19 @@ Unify Project Salus navigation so every major page links cleanly to the daily dr
 Project Salus has strong pages now, but navigation is distributed and inconsistent.
 
 ## Must Ship
-- Shared navigation pattern
-- Updated command home links
-- Updated daily driver links
-- Updated ops dashboard links
-- Updated review dashboard links
-- Updated records dashboard links
-- Updated health response primary pages
+- Central navigation endpoint
+- Navigation hub page
+- Primary page list
+- Daily workflow links
+- Admin/records links
+- Learning and communication links
 - Tests
+
+## New Endpoints
+- GET /api/command/navigation
+
+## New Page
+- GET /command/navigation
 
 ## Primary Pages
 - /command/workflows
@@ -23,9 +28,11 @@ Project Salus has strong pages now, but navigation is distributed and inconsiste
 - /command/ops
 - /command/review
 - /command/records
+- /command/integrated
+- /command/daily
 
 ## Success Criteria
-1. Kyle can reach every major page from main command pages.
+1. Kyle can reach every major page from one navigation hub.
 2. Workflow page is treated as the primary daily operating guide.
-3. Health endpoint lists all current primary pages.
+3. Navigation endpoint lists all current primary pages.
 4. Tests pass.
