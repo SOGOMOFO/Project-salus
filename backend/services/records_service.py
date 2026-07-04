@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from backend.services.storage_registry import sync_legacy_globals
 
 
 class Sprint16RecordMutationRequest(BaseModel):
@@ -46,11 +47,8 @@ def _normalize_record_mutation_payload(payload: dict[str, Any]) -> dict[str, Any
 
 
 def _sync_legacy_globals() -> None:
-    """Load shared stores/helpers from backend.main without keeping route behavior there."""
-    import backend.main as legacy_main
-
-    for name, value in vars(legacy_main).items():
-        globals().setdefault(name, value)
+    """Load shared stores/helpers through the storage registry."""
+    sync_legacy_globals(globals())
 
 
 async def _resolve_result(result: Any) -> Any:

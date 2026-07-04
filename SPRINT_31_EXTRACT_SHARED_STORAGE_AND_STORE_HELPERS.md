@@ -1,18 +1,25 @@
 # Sprint 31 — Extract Shared Storage and Store Helpers
 
 ## Objective
-Move shared storage helpers and store registry behavior out of backend/main.py into dedicated service/storage modules.
+Move shared storage/helper access behind a dedicated storage registry service.
 
-## Problem
-Records and Daily Driver services are explicit, but still sync shared stores/helpers from backend.main.
+## Shipped
+- backend/services/storage_registry.py
+- Records service uses storage registry for shared store/helper sync
+- Daily Driver service uses storage registry for shared store/helper sync
+- Removed direct backend.main namespace sync from Records/Daily Driver services
+- Existing URLs preserved
 
-## Must Ship
-- backend/services/storage_registry.py or backend/storage.py
-- Shared count/list/archive/delete helper ownership outside backend/main.py
-- Records service uses storage service directly
-- Daily Driver service uses storage/count service directly
-- Preserve all existing URLs
-- Preserve all tests
+## Preserved URLs
+- /api/command/records
+- /api/command/records/archive
+- /api/command/records/delete
+- /command/records
+- /api/command/daily-driver-state
+- /command/daily-driver
+
+## Remaining Technical Debt
+storage_registry.py still reads backend.main as a transitional dependency. Sprint 32 should begin moving actual store ownership into the registry/service layer.
 
 ## Constraint
 No feature changes. Refactor only.
