@@ -310,6 +310,11 @@ async def create_sitrep(
     conn.commit()
     conn.close()
     return {"status": "created"}
+
+from backend.routes import operator_console as _operator_console_router
+app.include_router(_operator_console_router.router)
+
+
 if __name__ == "__main__":
     import uvicorn
 
