@@ -3493,3 +3493,7 @@ app.include_router(_mission_registry_router.router)
 
 from backend.routes import command_center as _command_center_router
 app.include_router(_command_center_router.router)
+
+
+from backend.routes import doctrine_registry as _doctrine_registry_router
+app.include_router(_doctrine_registry_router.router)
