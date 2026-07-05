@@ -3420,3 +3420,9 @@ from backend.routes.knowledge import router as _phase2_knowledge_router
 
 app.include_router(_phase2_knowledge_router)
 
+
+# --- Phase II Epic 2 Memory Engine Router ---
+from backend.routes.salus_memory import router as _phase2_memory_router
+
+app.include_router(_phase2_memory_router)
+
