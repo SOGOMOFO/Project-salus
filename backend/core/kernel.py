@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from backend.core.intent_classifier import classify_intent
+from backend.core.learning_capture import learning_capture_status
 
 from backend.core.subsystem_registry import route_for_intent, subsystem_registry_status
 
@@ -52,6 +53,7 @@ def kernel_status() -> dict[str, Any]:
         "layers": SALUS_OS_LAYERS,
         "request_flow": REQUEST_FLOW,
         "subsystem_registry": subsystem_registry_status(),
+        "learning_capture": learning_capture_status(),
         "timestamp": _now_iso(),
     }
 

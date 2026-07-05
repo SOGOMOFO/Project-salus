@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from backend.core.context_packet import build_context_packet, context_packet_status
 from backend.core.response_planner import build_response_plan, response_planner_status
 from backend.core.execution_gate import evaluate_execution_gate, execution_gate_status
+from backend.core.learning_capture import capture_learning, get_learning_record, learning_capture_status, list_learning_records
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -103,6 +104,54 @@ async def kernel_execution_gate_api(payload: dict[str, Any]) -> dict[str, Any]:
         return evaluate_execution_gate(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+@router.get("/api/kernel/learning-capture/status")
+async def kernel_learning_capture_status_api() -> dict[str, Any]:
+    return learning_capture_status()
+
+
+@router.post("/api/kernel/learning-capture")
+async def kernel_learning_capture_api(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        record = capture_learning(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "status": "ok",
+        "record": record,
+    }
+
+
+@router.get("/api/kernel/learning-capture/records")
+async def kernel_learning_capture_records_api(
+    outcome: str | None = None,
+    query: str | None = None,
+    tag: str | None = None,
+) -> dict[str, Any]:
+    records = list_learning_records(outcome=outcome, query=query, tag=tag)
+
+    return {
+        "status": "ok",
+        "count": len(records),
+        "records": records,
+    }
+
+
+@router.get("/api/kernel/learning-capture/records/{record_id}")
+async def kernel_learning_capture_record_api(record_id: str) -> dict[str, Any]:
+    record = get_learning_record(record_id)
+
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+
+    return {
+        "status": "ok",
+        "record": record,
+    }
 
 
 @router.post("/api/kernel/route")
