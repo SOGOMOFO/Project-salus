@@ -3444,3 +3444,9 @@ from backend.routes.kernel import router as _salus_kernel_router
 
 app.include_router(_salus_kernel_router)
 
+
+# --- Phase III Teaching Engine Router ---
+from backend.routes.teaching_engine import router as _phase_iii_teaching_engine_router
+
+app.include_router(_phase_iii_teaching_engine_router)
+

@@ -39,6 +39,13 @@ SUBSYSTEMS = {
         "command_route": "/command/kernel",
         "mission": "Central orchestration layer for Salus OS.",
     },
+    "teaching_engine": {
+        "name": "Teaching Engine",
+        "layer": "learning",
+        "status_route": "/api/teaching-engine/status",
+        "command_route": "/command/teaching-engine",
+        "mission": "Teach Kyle through explanations, practice, quizzes, and mission-aligned learning sessions.",
+    },
 }
 
 
@@ -71,7 +78,7 @@ def subsystem_registry_status() -> dict[str, Any]:
 
 def route_for_intent(intent: str) -> dict[str, Any]:
     mapping = {
-        "learning": "knowledge",
+        "learning": "teaching_engine",
         "judgment": "judgment",
         "memory": "memory",
         "command": "kernel",
