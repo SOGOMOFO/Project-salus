@@ -3509,3 +3509,7 @@ app.include_router(_curiosity_parking_lot_router.router)
 
 from backend.routes import workflow_orchestrator as _workflow_orchestrator_router
 app.include_router(_workflow_orchestrator_router.router)
+
+
+from backend.routes import build_accelerator as _build_accelerator_router
+app.include_router(_build_accelerator_router.router)
