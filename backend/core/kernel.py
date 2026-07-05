@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from backend.core.subsystem_registry import route_for_intent, subsystem_registry_status
+
 
 KERNEL_VERSION = "0.1.0"
 
@@ -47,6 +49,7 @@ def kernel_status() -> dict[str, Any]:
         "layer_count": len(SALUS_OS_LAYERS),
         "layers": SALUS_OS_LAYERS,
         "request_flow": REQUEST_FLOW,
+        "subsystem_registry": subsystem_registry_status(),
         "timestamp": _now_iso(),
     }
 
@@ -98,6 +101,7 @@ def route_request(payload: dict[str, Any]) -> dict[str, Any]:
         "classification": classification,
         "flow": REQUEST_FLOW,
         "approval_required": classification["intent"] in {"judgment", "agent"},
+        "selected_subsystem": route_for_intent(classification["intent"]),
         "next_action": _next_action_for_intent(classification["intent"]),
         "timestamp": _now_iso(),
     }

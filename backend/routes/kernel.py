@@ -5,6 +5,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
+from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
+
 from backend.core.kernel import (
     kernel_architecture,
     kernel_status,
@@ -23,6 +25,36 @@ async def kernel_status_api() -> dict[str, Any]:
 @router.get("/api/kernel/architecture")
 async def kernel_architecture_api() -> dict[str, Any]:
     return kernel_architecture()
+
+
+
+
+@router.get("/api/kernel/subsystems")
+async def kernel_subsystems_api() -> dict[str, Any]:
+    subsystems = list_subsystems()
+    return {
+        "status": "ok",
+        "count": len(subsystems),
+        "subsystems": subsystems,
+    }
+
+
+@router.get("/api/kernel/subsystems/{subsystem_id}")
+async def kernel_subsystem_api(subsystem_id: str) -> dict[str, Any]:
+    subsystem = get_subsystem(subsystem_id)
+
+    if subsystem is None:
+        raise HTTPException(status_code=404, detail="subsystem not found")
+
+    return {
+        "status": "ok",
+        "subsystem": subsystem,
+    }
+
+
+@router.get("/api/kernel/subsystem-registry/status")
+async def kernel_subsystem_registry_status_api() -> dict[str, Any]:
+    return subsystem_registry_status()
 
 
 @router.post("/api/kernel/route")
