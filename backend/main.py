@@ -3469,3 +3469,7 @@ app.include_router(_ai_governance_router.router)
 
 from backend.routes import wealth_os as _wealth_os_router
 app.include_router(_wealth_os_router.router)
+
+
+from backend.routes import echo_seven_assessment as _echo_seven_assessment_router
+app.include_router(_echo_seven_assessment_router.router)
