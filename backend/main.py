@@ -3426,3 +3426,9 @@ from backend.routes.salus_memory import router as _phase2_memory_router
 
 app.include_router(_phase2_memory_router)
 
+
+# --- Phase II Epic 3 Judgment Engine Router ---
+from backend.routes.judgment_engine import router as _phase2_judgment_engine_router
+
+app.include_router(_phase2_judgment_engine_router)
+
