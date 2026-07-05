@@ -3461,3 +3461,7 @@ app.include_router(_master_core_os_router)
 
 from backend.routes import decision_firewall as _decision_firewall_router
 app.include_router(_decision_firewall_router.router)
+
+
+from backend.routes import ai_governance as _ai_governance_router
+app.include_router(_ai_governance_router.router)
