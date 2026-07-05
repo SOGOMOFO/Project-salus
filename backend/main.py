@@ -3501,3 +3501,7 @@ app.include_router(_doctrine_registry_router.router)
 
 from backend.routes import intelligence_intake as _intelligence_intake_router
 app.include_router(_intelligence_intake_router.router)
+
+
+from backend.routes import curiosity_parking_lot as _curiosity_parking_lot_router
+app.include_router(_curiosity_parking_lot_router.router)
