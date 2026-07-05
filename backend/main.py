@@ -3473,3 +3473,7 @@ app.include_router(_wealth_os_router.router)
 
 from backend.routes import echo_seven_assessment as _echo_seven_assessment_router
 app.include_router(_echo_seven_assessment_router.router)
+
+
+from backend.routes import daily_brief as _daily_brief_v2_router
+app.include_router(_daily_brief_v2_router.router)
