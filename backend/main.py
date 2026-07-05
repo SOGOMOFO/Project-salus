@@ -3485,3 +3485,7 @@ app.include_router(_strategy_critical_thinking_router.router)
 
 from backend.routes import mission_execution as _mission_execution_router
 app.include_router(_mission_execution_router.router)
+
+
+from backend.routes import mission_registry as _mission_registry_router
+app.include_router(_mission_registry_router.router)
