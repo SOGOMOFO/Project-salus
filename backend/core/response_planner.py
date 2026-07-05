@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.core.context_packet import build_context_packet
+from backend.core.execution_gate import evaluate_execution_gate
 
 
 RESPONSE_PLANNER_VERSION = "0.4.0"
@@ -47,6 +48,7 @@ def build_response_plan(payload: dict[str, Any]) -> dict[str, Any]:
         "selected_subsystem": subsystem,
         "response_pattern": _pattern_for_intent(intent),
         "approval_required": _approval_required(intent),
+        "execution_gate": evaluate_execution_gate({"user": context_packet.get("user", "Kyle"), "action": context_packet.get("input", "")}),
         "response_rules": [
             "Use the selected subsystem as primary context.",
             "State uncertainty when present.",

@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from backend.core.context_packet import build_context_packet, context_packet_status
 from backend.core.response_planner import build_response_plan, response_planner_status
+from backend.core.execution_gate import evaluate_execution_gate, execution_gate_status
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -85,6 +86,21 @@ async def kernel_plan_status_api() -> dict[str, Any]:
 async def kernel_plan_api(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         return build_response_plan(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+@router.get("/api/kernel/execution-gate/status")
+async def kernel_execution_gate_status_api() -> dict[str, Any]:
+    return execution_gate_status()
+
+
+@router.post("/api/kernel/execution-gate")
+async def kernel_execution_gate_api(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return evaluate_execution_gate(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
