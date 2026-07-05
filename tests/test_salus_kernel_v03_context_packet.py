@@ -59,7 +59,7 @@ def test_kernel_v03_context_packet_service():
     status = context_packet_status()
 
     assert packet["classification"]["intent"] == "learning"
-    assert packet["selected_subsystem"]["subsystem_id"] == "knowledge"
+    assert packet["selected_subsystem"]["subsystem_id"] == "teaching_engine"
     assert status["status"] == "ok"
 
 

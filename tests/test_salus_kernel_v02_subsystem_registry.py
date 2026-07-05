@@ -52,7 +52,7 @@ def test_kernel_v02_route_request_selects_subsystem():
 
 def test_kernel_v02_intent_mapping():
     assert route_for_intent("memory")["subsystem_id"] == "memory"
-    assert route_for_intent("learning")["subsystem_id"] == "knowledge"
+    assert route_for_intent("learning")["subsystem_id"] == "teaching_engine"
     assert route_for_intent("general")["subsystem_id"] == "core_identity"
 
 
