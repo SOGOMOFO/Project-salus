@@ -21,6 +21,7 @@ from backend.memory.memory_engine import initialize_memory_store
 from backend.plugins.api import router as plugins_router
 from backend.plugins.service import PluginService
 from backend.security.api import router as security_router
+from backend.routers.family import router as family_router
 from backend.security.core import security_core
 
 SALUS_PASSPHRASE = os.getenv("SALUS_PASSPHRASE", "salus-secure")
@@ -61,6 +62,7 @@ app.include_router(plugins_router)
 app.include_router(forge_router)
 app.include_router(security_router)
 app.include_router(intelligence_router)
+app.include_router(family_router)
 
 
 def verify_passphrase(
