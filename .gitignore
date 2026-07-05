@@ -25,3 +25,4 @@ backend/memory/memory.sqlite
 .env
 .env.*
 data/*.json
+runtime/

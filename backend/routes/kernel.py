@@ -11,6 +11,7 @@ from backend.core.execution_gate import evaluate_execution_gate, execution_gate_
 from backend.core.learning_capture import capture_learning, get_learning_record, learning_capture_status, list_learning_records
 from backend.core.doctrine_enforcer import build_doctrine_check, doctrine_enforcer_status
 from backend.core.orchestrator import orchestrate, orchestrator_status
+from backend.core.kernel_health import kernel_architecture_summary, kernel_health_status, kernel_route_inventory
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -21,6 +22,25 @@ from backend.core.kernel import (
 
 
 router = APIRouter(tags=["salus-kernel"])
+
+
+
+
+@router.get("/api/kernel/health")
+async def kernel_health_api() -> dict[str, Any]:
+    return kernel_health_status()
+
+
+@router.get("/api/kernel/route-inventory")
+async def kernel_route_inventory_api() -> dict[str, Any]:
+    from backend.main import app
+
+    return kernel_route_inventory(app)
+
+
+@router.get("/api/kernel/architecture-summary")
+async def kernel_architecture_summary_api() -> dict[str, Any]:
+    return kernel_architecture_summary()
 
 
 @router.get("/api/kernel/status")
