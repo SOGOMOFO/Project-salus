@@ -8,14 +8,24 @@ client = TestClient(app)
 
 def test_family_readiness_endpoint():
     response = client.get("/family/readiness")
-
     assert response.status_code == 200
 
     data = response.json()
-
     assert data["status"] == "active"
     assert data["module"] == "Family Stability & Relationship Operating System"
     assert "weekly_family_aar" in data["standing_functions"]
+    assert data["doctrine"]["relationship_health"] == "core_asset"
+
+
+def test_family_status_endpoint():
+    response = client.get("/family/status")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["module"] == "family_stability"
+    assert data["operating_mode"] == "preventive"
+    assert "next_action" in data
 
 
 def test_weekly_family_aar_endpoint():
@@ -28,11 +38,9 @@ def test_weekly_family_aar_endpoint():
     }
 
     response = client.post("/family/weekly-aar", json=payload)
-
     assert response.status_code == 200
 
     data = response.json()
-
     assert "family_readiness_score" in data
     assert data["risk_level"] in ["green", "amber", "red"]
     assert "avoided_topics_present" in data["risk_flags"]
@@ -48,14 +56,13 @@ def test_conflict_repair_endpoint():
     }
 
     response = client.post("/family/conflict-repair", json=payload)
-
     assert response.status_code == 200
 
     data = response.json()
-
     assert data["issue"] == payload["issue"]
     assert "repair_protocol" in data
     assert data["recommended_language"]
+    assert "assumptions_present" in data["escalation_risks"]
 
 
 def test_asset_protection_review_endpoint():
@@ -68,10 +75,36 @@ def test_asset_protection_review_endpoint():
     }
 
     response = client.post("/family/asset-protection-review", json=payload)
-
     assert response.status_code == 200
 
     data = response.json()
-
     assert "identified_gaps" in data
     assert "business_assets_require_structure_review" in data["identified_gaps"]
+    assert "personal_assets_without_documented_plan" in data["identified_gaps"]
+
+
+def test_household_alignment_endpoint():
+    payload = {
+        "top_family_priority": "Stabilize household schedule and money conversations",
+        "household_stressors": ["busy week"],
+        "money_topics": ["budget review"],
+        "parenting_topics": ["school planning"],
+        "schedule_conflicts": ["work and family time"],
+        "business_impacts": ["Echo Seven planning time"],
+        "next_family_actions": ["Schedule one budget conversation"],
+    }
+
+    response = client.post("/family/household-alignment", json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "alignment_score" in data
+    assert data["risk_level"] in ["green", "amber", "red"]
+    assert "money_topics_present" in data["risk_flags"]
+
+
+def test_family_dashboard_endpoint():
+    response = client.get("/family/dashboard")
+    assert response.status_code == 200
+    assert "Project Salus" in response.text
+    assert "Family Stability" in response.text
