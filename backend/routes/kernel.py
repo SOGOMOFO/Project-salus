@@ -194,35 +194,169 @@ async def kernel_route_api(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+
 @router.get("/command/kernel", response_class=HTMLResponse)
 async def kernel_page() -> HTMLResponse:
     return HTMLResponse("""
     <!doctype html>
     <html>
-      <head><title>Project Salus — Kernel</title></head>
+      <head>
+        <title>Project Salus — Kernel Command</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 32px;
+            background: #0f172a;
+            color: #e5e7eb;
+          }
+          h1, h2, h3 {
+            color: #f8fafc;
+          }
+          a {
+            color: #93c5fd;
+            margin-right: 16px;
+          }
+          textarea {
+            width: 100%;
+            min-height: 120px;
+            background: #020617;
+            color: #e5e7eb;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+          }
+          button {
+            background: #2563eb;
+            color: white;
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+          }
+          button:hover {
+            background: #1d4ed8;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+          }
+          .card {
+            background: #111827;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 16px;
+          }
+          pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 420px;
+            overflow: auto;
+          }
+          .status {
+            font-size: 14px;
+            color: #cbd5e1;
+          }
+        </style>
+      </head>
       <body>
-        <h1>Project Salus — Kernel v0.1</h1>
-        <p>Central orchestration layer for identity, memory, judgment, agents, execution, and learning.</p>
+        <h1>Project Salus — Kernel Command UI</h1>
+        <p class="status">
+          Kernel v0.9 integrates orchestration into the command interface.
+          This UI plans, gates, checks doctrine, and recommends learning capture.
+          It does not execute external actions.
+        </p>
 
-        <a href="/command/core-identity">Core Identity</a>
-        <a href="/command/knowledge">Knowledge</a>
-        <a href="/command/memory">Memory</a>
-        <a href="/command/judgment">Judgment</a>
+        <nav>
+          <a href="/command/core-identity">Core Identity</a>
+          <a href="/command/knowledge">Knowledge</a>
+          <a href="/command/memory">Memory</a>
+          <a href="/command/judgment">Judgment</a>
+          <a href="/command/kernel">Kernel</a>
+        </nav>
 
-        <h2>Status</h2>
-        <pre id="status">Loading...</pre>
+        <h2>Orchestrate Request</h2>
+        <textarea id="kernelInput" placeholder="Enter a request for the Salus Kernel...">Should I submit this contract?</textarea>
+        <br>
+        <button onclick="runKernel()">Run Kernel Orchestration</button>
 
-        <h2>Architecture</h2>
-        <pre id="architecture">Loading...</pre>
+        <div class="grid">
+          <div class="card">
+            <h3>Kernel Status</h3>
+            <pre id="status">Loading...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Context Packet</h3>
+            <pre id="contextPacket">Waiting for orchestration...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response Plan</h3>
+            <pre id="responsePlan">Waiting for orchestration...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Execution Gate</h3>
+            <pre id="executionGate">Waiting for orchestration...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Doctrine Check</h3>
+            <pre id="doctrineCheck">Waiting for orchestration...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Learning Recommendation</h3>
+            <pre id="learningRecommendation">Waiting for orchestration...</pre>
+          </div>
+        </div>
 
         <script>
-          fetch("/api/kernel/status").then(r => r.json()).then(d => {
-            document.getElementById("status").textContent = JSON.stringify(d, null, 2);
-          });
-          fetch("/api/kernel/architecture").then(r => r.json()).then(d => {
-            document.getElementById("architecture").textContent = JSON.stringify(d, null, 2);
-          });
+          function pretty(data) {
+            return JSON.stringify(data, null, 2);
+          }
+
+          async function loadStatus() {
+            const response = await fetch("/api/kernel/status");
+            const data = await response.json();
+            document.getElementById("status").textContent = pretty(data);
+          }
+
+          async function runKernel() {
+            const input = document.getElementById("kernelInput").value;
+
+            const response = await fetch("/api/kernel/orchestrate", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({user: "Kyle", input: input})
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              document.getElementById("contextPacket").textContent = pretty(data);
+              return;
+            }
+
+            document.getElementById("contextPacket").textContent = pretty(data.context_packet);
+            document.getElementById("responsePlan").textContent = pretty(data.response_plan);
+            document.getElementById("executionGate").textContent = pretty(data.execution_gate);
+            document.getElementById("doctrineCheck").textContent = pretty(data.doctrine_check);
+            document.getElementById("learningRecommendation").textContent = pretty(data.learning_recommendation);
+          }
+
+          loadStatus();
         </script>
       </body>
     </html>
     """)
+
