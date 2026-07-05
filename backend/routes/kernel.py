@@ -10,6 +10,7 @@ from backend.core.response_planner import build_response_plan, response_planner_
 from backend.core.execution_gate import evaluate_execution_gate, execution_gate_status
 from backend.core.learning_capture import capture_learning, get_learning_record, learning_capture_status, list_learning_records
 from backend.core.doctrine_enforcer import build_doctrine_check, doctrine_enforcer_status
+from backend.core.orchestrator import orchestrate, orchestrator_status
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -166,6 +167,21 @@ async def kernel_doctrine_check_status_api() -> dict[str, Any]:
 async def kernel_doctrine_check_api(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         return build_doctrine_check(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+
+
+@router.get("/api/kernel/orchestrate/status")
+async def kernel_orchestrate_status_api() -> dict[str, Any]:
+    return orchestrator_status()
+
+
+@router.post("/api/kernel/orchestrate")
+async def kernel_orchestrate_api(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return orchestrate(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
