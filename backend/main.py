@@ -3452,3 +3452,8 @@ from backend.routes.teaching_engine import router as _phase_iii_teaching_engine_
 
 app.include_router(_phase_iii_teaching_engine_router)
 
+
+# --- Master Sprint Core OS Router ---
+from backend.routes.core_os import router as _master_core_os_router
+
+app.include_router(_master_core_os_router)
