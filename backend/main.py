@@ -3489,3 +3489,7 @@ app.include_router(_mission_execution_router.router)
 
 from backend.routes import mission_registry as _mission_registry_router
 app.include_router(_mission_registry_router.router)
+
+
+from backend.routes import command_center as _command_center_router
+app.include_router(_command_center_router.router)
