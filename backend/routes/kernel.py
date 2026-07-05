@@ -9,6 +9,7 @@ from backend.core.context_packet import build_context_packet, context_packet_sta
 from backend.core.response_planner import build_response_plan, response_planner_status
 from backend.core.execution_gate import evaluate_execution_gate, execution_gate_status
 from backend.core.learning_capture import capture_learning, get_learning_record, learning_capture_status, list_learning_records
+from backend.core.doctrine_enforcer import build_doctrine_check, doctrine_enforcer_status
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -152,6 +153,21 @@ async def kernel_learning_capture_record_api(record_id: str) -> dict[str, Any]:
         "status": "ok",
         "record": record,
     }
+
+
+
+
+@router.get("/api/kernel/doctrine-check/status")
+async def kernel_doctrine_check_status_api() -> dict[str, Any]:
+    return doctrine_enforcer_status()
+
+
+@router.post("/api/kernel/doctrine-check")
+async def kernel_doctrine_check_api(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return build_doctrine_check(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/kernel/route")
