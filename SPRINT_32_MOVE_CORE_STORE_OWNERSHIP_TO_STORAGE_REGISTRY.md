@@ -1,17 +1,30 @@
-# Sprint 32 — Move Core Store Ownership Into Storage Registry
+# Sprint 32 — Move Core Store Helper Ownership Into Storage Registry
 
 ## Objective
-Move core store ownership and common store helper functions out of backend/main.py into backend/services/storage_registry.py.
+Move common storage helper responsibilities into `backend/services/storage_registry.py`.
 
-## Problem
-Sprint 31 centralized storage access, but the storage registry still reads store objects from backend.main.
+## Shipped
+- Added preferred storage helper API:
+  - sync_service_globals
+  - get_store
+  - store_count
+  - store_counts
+  - normalize_record_mutation_payload
+  - storage_registry_status
+- Records service uses storage registry payload normalization and service sync
+- Daily Driver service uses service sync from storage registry
+- Existing URLs preserved
 
-## Must Ship
-- storage_registry owns common store helper functions
-- records_service uses storage_registry helpers directly
-- daily_driver_service uses storage_registry count helpers directly
-- Preserve all existing URLs
-- Preserve all tests
+## Preserved URLs
+- /api/command/records
+- /api/command/records/archive
+- /api/command/records/delete
+- /command/records
+- /api/command/daily-driver-state
+- /command/daily-driver
+
+## Remaining Technical Debt
+The registry still reads backend.main during transition. Sprint 33 should move one low-risk store/helper out of backend.main entirely.
 
 ## Constraint
 No feature changes. Refactor only.
