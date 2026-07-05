@@ -3477,3 +3477,7 @@ app.include_router(_echo_seven_assessment_router.router)
 
 from backend.routes import daily_brief as _daily_brief_v2_router
 app.include_router(_daily_brief_v2_router.router)
+
+
+from backend.routes import strategy_critical_thinking as _strategy_critical_thinking_router
+app.include_router(_strategy_critical_thinking_router.router)
