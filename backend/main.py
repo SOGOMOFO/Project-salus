@@ -3457,3 +3457,7 @@ app.include_router(_phase_iii_teaching_engine_router)
 from backend.routes.core_os import router as _master_core_os_router
 
 app.include_router(_master_core_os_router)
+
+
+from backend.routes import decision_firewall as _decision_firewall_router
+app.include_router(_decision_firewall_router.router)
