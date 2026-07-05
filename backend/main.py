@@ -3438,3 +3438,9 @@ from backend.routes.core_identity import router as _phase2_core_identity_router
 
 app.include_router(_phase2_core_identity_router)
 
+
+# --- Salus Kernel v0.1 Router ---
+from backend.routes.kernel import router as _salus_kernel_router
+
+app.include_router(_salus_kernel_router)
+
