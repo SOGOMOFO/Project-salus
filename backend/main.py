@@ -3432,3 +3432,9 @@ from backend.routes.judgment_engine import router as _phase2_judgment_engine_rou
 
 app.include_router(_phase2_judgment_engine_router)
 
+
+# --- Phase II Core Identity Router ---
+from backend.routes.core_identity import router as _phase2_core_identity_router
+
+app.include_router(_phase2_core_identity_router)
+
