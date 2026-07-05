@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
+from backend.core.context_packet import build_context_packet, context_packet_status
 from backend.core.subsystem_registry import get_subsystem, list_subsystems, subsystem_registry_status
 
 from backend.core.kernel import (
@@ -55,6 +56,21 @@ async def kernel_subsystem_api(subsystem_id: str) -> dict[str, Any]:
 @router.get("/api/kernel/subsystem-registry/status")
 async def kernel_subsystem_registry_status_api() -> dict[str, Any]:
     return subsystem_registry_status()
+
+
+
+
+@router.get("/api/kernel/context/status")
+async def kernel_context_status_api() -> dict[str, Any]:
+    return context_packet_status()
+
+
+@router.post("/api/kernel/context")
+async def kernel_context_api(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return build_context_packet(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/kernel/route")
