@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from backend.core.intent_classifier import classify_intent
+
 from backend.core.subsystem_registry import route_for_intent, subsystem_registry_status
 
 
@@ -92,6 +94,7 @@ def route_request(payload: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("input is required")
 
     classification = classify_intent(text)
+    from backend.core.context_packet import build_context_packet
 
     return {
         "status": "ok",
@@ -102,6 +105,7 @@ def route_request(payload: dict[str, Any]) -> dict[str, Any]:
         "flow": REQUEST_FLOW,
         "approval_required": classification["intent"] in {"judgment", "agent"},
         "selected_subsystem": route_for_intent(classification["intent"]),
+        "context_packet": build_context_packet({"user": user, "input": text}),
         "next_action": _next_action_for_intent(classification["intent"]),
         "timestamp": _now_iso(),
     }
