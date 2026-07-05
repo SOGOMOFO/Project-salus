@@ -3465,3 +3465,7 @@ app.include_router(_decision_firewall_router.router)
 
 from backend.routes import ai_governance as _ai_governance_router
 app.include_router(_ai_governance_router.router)
+
+
+from backend.routes import wealth_os as _wealth_os_router
+app.include_router(_wealth_os_router.router)
