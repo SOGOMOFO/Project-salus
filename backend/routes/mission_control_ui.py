@@ -126,6 +126,72 @@ def _cell(value: Any) -> str:
     return html.escape(str(value))
 
 
+def _ensure_daily_workflow_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mission_control_daily_workflow (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workflow_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
+def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], sitreps: list[dict[str, Any]], aars: list[dict[str, Any]]) -> str:
+    open_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() not in {"complete", "completed", "done"}
+    ]
+    blocked_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "blocked"
+    ]
+
+    top_mission = open_missions[0] if open_missions else {}
+    latest_sitrep = sitreps[0] if sitreps else {}
+    latest_aar = aars[0] if aars else {}
+
+    if workflow_type == "morning_brief":
+        return "\n".join([
+            "PROJECT SALUS MORNING BRIEF",
+            "",
+            f"Open Missions: {len(open_missions)}",
+            f"Blocked Missions: {len(blocked_missions)}",
+            "",
+            "Priority Lock:",
+            _value(top_mission, "title", default="Create today's priority mission."),
+            "",
+            "Next Action:",
+            _value(top_mission, "next_action", default="Define the first executable action."),
+            "",
+            "Latest SITREP:",
+            _value(latest_sitrep, "top_priority", default="No SITREP captured."),
+            "",
+            "Commander Intent:",
+            "Execute the highest-value action before expanding scope.",
+        ])
+
+    return "\n".join([
+        "PROJECT SALUS EVENING AAR",
+        "",
+        "Review Focus:",
+        _value(top_mission, "title", default="No active mission selected."),
+        "",
+        "What changed today:",
+        _value(latest_sitrep, "top_priority", default="No SITREP captured."),
+        "",
+        "Latest Lesson:",
+        _value(latest_aar, "lesson_learned", "lesson", default="No AAR lesson captured."),
+        "",
+        "Tomorrow's First Move:",
+        _value(top_mission, "next_action", default="Set tomorrow's first action."),
+    ])
+
+
 def _table(title: str, rows: list[dict[str, Any]]) -> str:
     if not rows:
         return f"""
@@ -315,6 +381,31 @@ def generate_commander_brief_from_ui():
     return RedirectResponse("/mission-control/ui", status_code=303)
 
 
+@router.post("/mission-control/daily-workflow/{workflow_type}")
+def generate_daily_workflow_from_ui(workflow_type: str):
+    allowed = {"morning_brief", "evening_aar"}
+    if workflow_type not in allowed:
+        return RedirectResponse("/mission-control/ui", status_code=303)
+
+    with _connect() as conn:
+        _ensure_daily_workflow_table(conn)
+        missions = _safe_rows(conn, "missions", 50)
+        sitreps = _safe_rows(conn, "sitreps", 20)
+        aars = _safe_rows(conn, "aars", 20)
+        now = datetime.now(timezone.utc).isoformat()
+
+        title = "Morning Brief" if workflow_type == "morning_brief" else "Evening AAR"
+        content = _daily_workflow_content(workflow_type, missions, sitreps, aars)
+
+        conn.execute(
+            "INSERT INTO mission_control_daily_workflow (workflow_type, title, content, created_at) VALUES (?, ?, ?, ?)",
+            (workflow_type, title, content, now),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
+
+
 @router.get("/mission-control/ui", response_class=HTMLResponse)
 def mission_control_ui() -> str:
     with _connect() as conn:
@@ -324,6 +415,8 @@ def mission_control_ui() -> str:
         aars = _safe_rows(conn, "aars", 10)
         agents = _safe_rows(conn, "agents", 10)
         commander_briefs = _safe_rows(conn, "mission_control_briefs", 5)
+        _ensure_daily_workflow_table(conn)
+        daily_workflows = _safe_rows(conn, "mission_control_daily_workflow", 5)
 
     active_missions = [
         mission for mission in missions
@@ -512,6 +605,20 @@ def mission_control_ui() -> str:
         </section>
 
         {_table("Daily Commander Briefs", commander_briefs)}
+
+        <section class="card">
+          <h2>Daily Workflow Engine</h2>
+          <p class="muted">Run the operating rhythm.</p>
+          <form method="post" action="/mission-control/daily-workflow/morning_brief">
+            <button type="submit">Generate Morning Brief</button>
+          </form>
+          <form method="post" action="/mission-control/daily-workflow/evening_aar">
+            <button type="submit">Generate Evening AAR</button>
+          </form>
+        </section>
+
+        {_table("Daily Workflow History", daily_workflows)}
+
 
         {_table("Missions", missions)}
         {_table("Recent SITREPs", sitreps)}
