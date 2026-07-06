@@ -7,4 +7,4 @@ if [ -d ".venv" ]; then
   source .venv/bin/activate
 fi
 
-python -m uvicorn backend.main:app --reload --port 8001
+python -m uvicorn backend.main:app --reload --port 8010
