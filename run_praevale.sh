@@ -7,4 +7,4 @@ if [ -d ".venv" ]; then
   source .venv/bin/activate
 fi
 
-python -m uvicorn praevale_app.main:app --reload
+python -m uvicorn backend.main:app --reload --port 8001
