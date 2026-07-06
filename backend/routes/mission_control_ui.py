@@ -336,6 +336,32 @@ def _form_value(form: dict[str, list[str]], key: str, default: str = "") -> str:
     return values[0].strip()
 
 
+def _insert_dynamic_with_conn(conn: sqlite3.Connection, table: str, values: dict[str, Any]) -> None:
+    if not _table_exists(conn, table):
+        return
+
+    existing_columns = {
+        row["name"]
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+
+    payload = {
+        key: value
+        for key, value in values.items()
+        if key in existing_columns
+    }
+
+    if not payload:
+        return
+
+    columns = ", ".join(payload.keys())
+    placeholders = ", ".join(["?"] * len(payload))
+    conn.execute(
+        f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+        tuple(payload.values()),
+    )
+
+
 def _insert_dynamic(table: str, values: dict[str, Any]) -> None:
     with _connect() as conn:
         if not _table_exists(conn, table):
@@ -945,6 +971,63 @@ def convert_operator_item_to_mission(item_id: int):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/generate-missions-from-queue")
+def generate_missions_from_queue():
+    with _connect() as conn:
+        _ensure_operator_queue_table(conn)
+
+        rows = conn.execute(
+            """
+            SELECT * FROM mission_control_operator_queue
+            WHERE status IN ('open', 'in_progress')
+            ORDER BY
+              CASE priority
+                WHEN 'critical' THEN 1
+                WHEN 'high' THEN 2
+                WHEN 'medium' THEN 3
+                WHEN 'low' THEN 4
+                ELSE 5
+              END,
+              id ASC
+            
+            """
+        ).fetchall()
+
+        for item in rows:
+            row = dict(item)
+            _insert_dynamic_with_conn(
+                conn,
+                "missions",
+                {
+                    "title": row.get("title") or "Generated Mission",
+                    "status": "active",
+                    "priority": row.get("priority") or "medium",
+                    "next_action": row.get("description") or "Define next action.",
+                },
+            )
+            conn.execute(
+                "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
+                ("done", row["id"]),
+            )
+
+        conn.commit()
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/operator-queue/cleanup")
+def cleanup_operator_queue():
+    with _connect() as conn:
+        _ensure_operator_queue_table(conn)
+        conn.execute(
+            "DELETE FROM mission_control_operator_queue WHERE status = ?",
+            ("done",),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -1175,6 +1258,14 @@ def mission_control_v1() -> str:
 
         <section class="card">
           <h2>Command Queue</h2>
+          <div class="mission-actions" style="margin-bottom:12px;">
+            <form method="post" action="/mission-control/generate-missions-from-queue">
+              <button type="submit">Generate Missions from Queue</button>
+            </form>
+            <form method="post" action="/mission-control/operator-queue/cleanup">
+              <button type="submit">Cleanup Done Items</button>
+            </form>
+          </div>
           {_operator_queue_table(operator_queue)}
         </section>
 
