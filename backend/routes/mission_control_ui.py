@@ -126,6 +126,23 @@ def _cell(value: Any) -> str:
     return html.escape(str(value))
 
 
+def _ensure_operator_queue_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mission_control_operator_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            queue_type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            priority TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
 def _ensure_daily_workflow_table(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -817,6 +834,50 @@ def mission_control_live_status():
     }
 
 
+@router.post("/mission-control/operator-item")
+async def create_operator_item_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    with _connect() as conn:
+        _ensure_operator_queue_table(conn)
+        conn.execute(
+            """
+            INSERT INTO mission_control_operator_queue
+            (title, description, queue_type, status, priority, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                _form_value(form, "title", "Untitled Operator Item"),
+                _form_value(form, "description", ""),
+                _form_value(form, "queue_type", "task"),
+                _form_value(form, "status", "open"),
+                _form_value(form, "priority", "medium"),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/operator-item/{item_id}/status/{status}")
+def update_operator_item_status_from_ui(item_id: int, status: str):
+    allowed = {"open", "in_progress", "done", "blocked"}
+    if status not in allowed:
+        return RedirectResponse("/mission-control/v1", status_code=303)
+
+    with _connect() as conn:
+        _ensure_operator_queue_table(conn)
+        conn.execute(
+            "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
+            (status, item_id),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -828,6 +889,8 @@ def mission_control_v1() -> str:
         aars = _safe_rows(conn, "aars", 5)
         commander_briefs = _safe_rows(conn, "mission_control_briefs", 3)
         daily_workflows = _safe_rows(conn, "mission_control_daily_workflow", 3)
+        _ensure_operator_queue_table(conn)
+        operator_queue = _safe_rows(conn, "mission_control_operator_queue", 12)
 
     active = [
         mission for mission in missions
@@ -1030,6 +1093,24 @@ def mission_control_v1() -> str:
           <h2>Today Mission Queue</h2>
           {mission_cards}
         </section>
+
+
+        <section class="card">
+          <h2>Operator Inbox</h2>
+          <form method="post" action="/mission-control/operator-item">
+            <input name="title" placeholder="Task / decision / issue" required>
+            <input name="priority" value="high">
+            <input name="queue_type" value="task">
+            <textarea name="description" placeholder="Details"></textarea>
+            <button type="submit">Add to Queue</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Command Queue</h2>
+          {_table("Operator Queue", operator_queue)}
+        </section>
+
 
         <section class="card">
           <h2>Quick Actions</h2>
