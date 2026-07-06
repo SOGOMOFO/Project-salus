@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,82 @@ def _safe_rows(conn: sqlite3.Connection, table: str, limit: int = 10) -> list[di
         rows = conn.execute(f"SELECT * FROM {table} LIMIT ?", (limit,)).fetchall()
 
     return [dict(row) for row in rows]
+
+
+def _ensure_commander_briefs_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mission_control_briefs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            brief TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
+def _value(row: dict[str, Any], *keys: str, default: str = "") -> str:
+    for key in keys:
+        value = row.get(key)
+        if value not in (None, ""):
+            return str(value)
+    return default
+
+
+def _build_commander_brief(
+    missions: list[dict[str, Any]],
+    sitreps: list[dict[str, Any]],
+    aars: list[dict[str, Any]],
+) -> str:
+    open_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() not in {"complete", "completed", "done"}
+    ]
+
+    blocked_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "blocked"
+    ]
+
+    latest_sitrep = sitreps[0] if sitreps else None
+    latest_aar = aars[0] if aars else None
+
+    next_action = "Create or update the highest-priority active mission."
+    if open_missions:
+        next_action = _value(
+            open_missions[0],
+            "next_action",
+            "title",
+            default="Review the highest-priority active mission.",
+        )
+
+    lines = [
+        "PROJECT SALUS DAILY COMMANDER BRIEF",
+        "",
+        "Operating Status: ACTIVE",
+        f"Open Missions: {len(open_missions)}",
+        f"Blocked Missions: {len(blocked_missions)}",
+        f"Total Missions Reviewed: {len(missions)}",
+        "",
+        "Top Mission Focus:",
+        _value(open_missions[0], "title", default="No active mission found.") if open_missions else "No active mission found.",
+        "",
+        "Latest SITREP:",
+        _value(latest_sitrep, "top_priority", default="No SITREP available.") if latest_sitrep else "No SITREP available.",
+        "",
+        "Latest AAR Lesson:",
+        _value(latest_aar, "lesson_learned", "lesson", default="No AAR lesson captured.") if latest_aar else "No AAR available.",
+        "",
+        "Next Recommended Action:",
+        next_action,
+        "",
+        "Commander Rule:",
+        "Build usable workflow before adding new doctrine.",
+    ]
+
+    return "\n".join(str(line) if line is not None else "" for line in lines)
 
 
 def _cell(value: Any) -> str:
@@ -218,13 +295,35 @@ def update_mission_status_from_ui(mission_id: int, status: str):
     return RedirectResponse("/mission-control/ui", status_code=303)
 
 
+@router.post("/mission-control/commander-brief")
+def generate_commander_brief_from_ui():
+    with _connect() as conn:
+        _ensure_commander_briefs_table(conn)
+        missions = _safe_rows(conn, "missions", 50)
+        sitreps = _safe_rows(conn, "sitreps", 20)
+        aars = _safe_rows(conn, "aars", 20)
+
+        brief = _build_commander_brief(missions, sitreps, aars)
+        now = datetime.now(timezone.utc).isoformat()
+
+        conn.execute(
+            "INSERT INTO mission_control_briefs (title, brief, created_at) VALUES (?, ?, ?)",
+            ("Daily Commander Brief", brief, now),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
+
+
 @router.get("/mission-control/ui", response_class=HTMLResponse)
 def mission_control_ui() -> str:
     with _connect() as conn:
+        _ensure_commander_briefs_table(conn)
         missions = _safe_rows(conn, "missions", 10)
         sitreps = _safe_rows(conn, "sitreps", 10)
         aars = _safe_rows(conn, "aars", 10)
         agents = _safe_rows(conn, "agents", 10)
+        commander_briefs = _safe_rows(conn, "mission_control_briefs", 5)
 
     active_missions = [
         mission for mission in missions
@@ -387,6 +486,17 @@ def mission_control_ui() -> str:
             </form>
           </section>
         </section>
+
+
+        <section class="card">
+          <h2>Daily Commander Brief</h2>
+          <p class="muted">Generate a fresh commander brief from current missions, SITREPs, and AARs.</p>
+          <form method="post" action="/mission-control/commander-brief">
+            <button type="submit">Generate Commander Brief</button>
+          </form>
+        </section>
+
+        {_table("Daily Commander Briefs", commander_briefs)}
 
         {_table("Missions", missions)}
         {_table("Recent SITREPs", sitreps)}
