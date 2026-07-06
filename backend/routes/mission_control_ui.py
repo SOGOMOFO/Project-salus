@@ -741,3 +741,283 @@ def mission_control_ui() -> str:
     </body>
     </html>
     """
+
+
+@router.get("/mission-control/v1", response_class=HTMLResponse)
+def mission_control_v1() -> str:
+    with _connect() as conn:
+        _ensure_commander_briefs_table(conn)
+        _ensure_daily_workflow_table(conn)
+
+        missions = _safe_rows(conn, "missions", 25)
+        sitreps = _safe_rows(conn, "sitreps", 5)
+        aars = _safe_rows(conn, "aars", 5)
+        commander_briefs = _safe_rows(conn, "mission_control_briefs", 3)
+        daily_workflows = _safe_rows(conn, "mission_control_daily_workflow", 3)
+
+    active = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() not in {"complete", "completed", "done"}
+    ]
+    blocked = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "blocked"
+    ]
+
+    latest_sitrep = sitreps[0] if sitreps else {}
+    latest_aar = aars[0] if aars else {}
+    latest_brief = commander_briefs[0] if commander_briefs else {}
+    latest_workflow = daily_workflows[0] if daily_workflows else {}
+
+    mission_cards = ""
+    for mission in active[:6]:
+        mission_id = html.escape(str(mission.get("id", "")))
+        mission_cards += f"""
+        <article class="mission-card">
+          <div class="mission-top">
+            <strong>{html.escape(str(mission.get("title", "Untitled Mission")))}</strong>
+            <span>{html.escape(str(mission.get("priority", "")))}</span>
+          </div>
+          <p>{html.escape(str(mission.get("next_action", "No next action set.")))}</p>
+          <div class="mission-actions">
+            <form method="post" action="/mission-control/mission/{mission_id}/status/active"><button>Active</button></form>
+            <form method="post" action="/mission-control/mission/{mission_id}/status/blocked"><button>Blocked</button></form>
+            <form method="post" action="/mission-control/mission/{mission_id}/status/complete"><button>Complete</button></form>
+          </div>
+        </article>
+        """
+
+    if not mission_cards:
+        mission_cards = "<p class='muted'>No active missions. Create one below.</p>"
+
+    return f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Mission Control v1</title>
+      <style>
+        body {{
+          margin: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #080c11;
+          color: #e8edf2;
+        }}
+        a {{ color: #8ab4ff; text-decoration: none; }}
+        .nav {{
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 12px 22px;
+          background: #0e151d;
+          border-bottom: 1px solid #263241;
+        }}
+        .nav a {{
+          border: 1px solid #334960;
+          border-radius: 999px;
+          padding: 7px 10px;
+          color: #cfe3ff;
+          background: #121a24;
+          font-size: 13px;
+        }}
+        header {{
+          padding: 24px;
+          background: linear-gradient(135deg, #111821, #182536);
+          border-bottom: 1px solid #263241;
+        }}
+        h1 {{ margin: 0; font-size: 32px; }}
+        h2 {{ margin-top: 0; }}
+        main {{
+          padding: 20px;
+          display: grid;
+          grid-template-columns: 1.1fr .9fr;
+          gap: 18px;
+        }}
+        .full {{ grid-column: 1 / -1; }}
+        .card {{
+          background: #141c26;
+          border: 1px solid #263241;
+          border-radius: 14px;
+          padding: 16px;
+          box-shadow: 0 8px 24px rgba(0,0,0,.22);
+        }}
+        .metrics {{
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 12px;
+        }}
+        .metric {{
+          background: #0f1720;
+          border: 1px solid #263241;
+          border-radius: 12px;
+          padding: 14px;
+        }}
+        .metric strong {{
+          display: block;
+          font-size: 30px;
+        }}
+        .muted {{ color: #9fb0c0; }}
+        .mission-card {{
+          background: #0f1720;
+          border: 1px solid #263241;
+          border-radius: 12px;
+          padding: 12px;
+          margin-bottom: 10px;
+        }}
+        .mission-top {{
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+        }}
+        .mission-top span {{
+          color: #9fb0c0;
+          font-size: 13px;
+        }}
+        .mission-actions {{
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }}
+        form {{ margin: 0; }}
+        input, textarea {{
+          width: 100%;
+          box-sizing: border-box;
+          margin: 6px 0;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid #34465a;
+          background: #0b0f14;
+          color: #e8edf2;
+        }}
+        textarea {{ min-height: 72px; }}
+        button {{
+          margin-top: 7px;
+          padding: 9px 12px;
+          border-radius: 8px;
+          border: 1px solid #4d6480;
+          background: #1f2c3a;
+          color: #e8edf2;
+          cursor: pointer;
+        }}
+        pre {{
+          white-space: pre-wrap;
+          background: #0b0f14;
+          border: 1px solid #263241;
+          border-radius: 10px;
+          padding: 12px;
+          max-height: 280px;
+          overflow: auto;
+        }}
+        .quick {{
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+          gap: 10px;
+        }}
+        .quick form, .quick a {{
+          display: block;
+          background: #0f1720;
+          border: 1px solid #263241;
+          border-radius: 12px;
+          padding: 12px;
+        }}
+        @media (max-width: 900px) {{
+          main {{ grid-template-columns: 1fr; }}
+        }}
+      </style>
+    </head>
+    <body>
+      <nav class="nav">
+        <a href="/command-home">Command Home</a>
+        <a href="/command">Command OS</a>
+        <a href="/mission-control/ui">Classic Mission Control</a>
+        <a href="/mission-control/v1">Mission Control v1</a>
+        <a href="/mission-control/brief/latest">Print Brief</a>
+        <a href="/docs">API Docs</a>
+      </nav>
+
+      <header>
+        <h1>Mission Control v1</h1>
+        <p class="muted">One-screen operating layout for daily execution.</p>
+      </header>
+
+      <main>
+        <section class="card full">
+          <div class="metrics">
+            <div class="metric"><span>Active Missions</span><strong>{len(active)}</strong></div>
+            <div class="metric"><span>Blocked</span><strong>{len(blocked)}</strong></div>
+            <div class="metric"><span>SITREPs</span><strong>{len(sitreps)}</strong></div>
+            <div class="metric"><span>AARs</span><strong>{len(aars)}</strong></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Today Mission Queue</h2>
+          {mission_cards}
+        </section>
+
+        <section class="card">
+          <h2>Quick Actions</h2>
+          <div class="quick">
+            <form method="post" action="/mission-control/commander-brief">
+              <button type="submit">Generate Commander Brief</button>
+            </form>
+            <form method="post" action="/mission-control/daily-workflow/morning_brief">
+              <button type="submit">Morning Brief</button>
+            </form>
+            <form method="post" action="/mission-control/daily-workflow/evening_aar">
+              <button type="submit">Evening AAR</button>
+            </form>
+            <a href="/mission-control/brief/latest">Print / Export Latest Brief</a>
+          </div>
+
+          <h2 style="margin-top:18px;">Create Mission</h2>
+          <form method="post" action="/mission-control/mission">
+            <input name="title" placeholder="Mission title" required>
+            <input name="priority" value="high">
+            <input name="status" value="active">
+            <textarea name="next_action" placeholder="Next action"></textarea>
+            <button type="submit">Create Mission</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Latest Brief</h2>
+          <pre>{html.escape(_value(latest_brief, "brief", default="No commander brief generated."))}</pre>
+        </section>
+
+        <section class="card">
+          <h2>Latest Workflow</h2>
+          <pre>{html.escape(_value(latest_workflow, "content", default="No daily workflow generated."))}</pre>
+        </section>
+
+        <section class="card">
+          <h2>Submit SITREP</h2>
+          <form method="post" action="/mission-control/sitrep">
+            <input name="top_priority" placeholder="Top priority" required>
+            <input name="blocker" placeholder="Blocker">
+            <input name="action_1" placeholder="Action 1">
+            <input name="action_2" placeholder="Action 2">
+            <input name="action_3" placeholder="Action 3">
+            <button type="submit">Submit SITREP</button>
+          </form>
+          <p class="muted">Latest: {html.escape(_value(latest_sitrep, "top_priority", default="None"))}</p>
+        </section>
+
+        <section class="card">
+          <h2>Capture AAR</h2>
+          <form method="post" action="/mission-control/aar">
+            <input name="mission_id" placeholder="Mission name or ID optional">
+            <textarea name="what_happened" placeholder="What happened?"></textarea>
+            <textarea name="what_worked" placeholder="What worked?"></textarea>
+            <textarea name="what_failed" placeholder="What failed?"></textarea>
+            <textarea name="lesson" placeholder="Lesson learned"></textarea>
+            <textarea name="next_action" placeholder="Next adjustment"></textarea>
+            <button type="submit">Capture AAR</button>
+          </form>
+          <p class="muted">Latest lesson: {html.escape(_value(latest_aar, "lesson_learned", "lesson", default="None"))}</p>
+        </section>
+      </main>
+    </body>
+    </html>
+    """
