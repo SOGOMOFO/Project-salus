@@ -209,6 +209,39 @@ def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], 
     ])
 
 
+def _operator_queue_table(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "<p class='muted'>No operator queue items.</p>"
+
+    body = ""
+    for row in rows:
+        item_id = html.escape(str(row.get("id", "")))
+        title = html.escape(str(row.get("title", "Untitled")))
+        description = html.escape(str(row.get("description", "")))
+        status = html.escape(str(row.get("status", "")))
+        priority = html.escape(str(row.get("priority", "")))
+        queue_type = html.escape(str(row.get("queue_type", "")))
+
+        body += f"""
+        <article class="mission-card">
+          <div class="mission-top">
+            <strong>{title}</strong>
+            <span>{priority}</span>
+          </div>
+          <p>{description}</p>
+          <p class="muted">Type: {queue_type} | Status: {status}</p>
+          <div class="mission-actions">
+            <form method="post" action="/mission-control/operator-item/{item_id}/status/in_progress"><button>In Progress</button></form>
+            <form method="post" action="/mission-control/operator-item/{item_id}/status/blocked"><button>Blocked</button></form>
+            <form method="post" action="/mission-control/operator-item/{item_id}/status/done"><button>Done</button></form>
+            <form method="post" action="/mission-control/operator-item/{item_id}/convert-to-mission"><button>Convert to Mission</button></form>
+          </div>
+        </article>
+        """
+
+    return body
+
+
 def _mission_queue(rows: list[dict[str, Any]]) -> str:
     active = [
         row for row in rows
@@ -878,6 +911,40 @@ def update_operator_item_status_from_ui(item_id: int, status: str):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/operator-item/{item_id}/convert-to-mission")
+def convert_operator_item_to_mission(item_id: int):
+    with _connect() as conn:
+        _ensure_operator_queue_table(conn)
+
+        item = conn.execute(
+            "SELECT * FROM mission_control_operator_queue WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+
+        if item is None:
+            return RedirectResponse("/mission-control/v1", status_code=303)
+
+        row = dict(item)
+
+        _insert_dynamic(
+            "missions",
+            {
+                "title": row.get("title") or "Converted Mission",
+                "status": "active",
+                "priority": row.get("priority") or "medium",
+                "next_action": row.get("description") or "Define next action.",
+            },
+        )
+
+        conn.execute(
+            "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
+            ("done", item_id),
+        )
+        conn.commit()
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -1108,7 +1175,7 @@ def mission_control_v1() -> str:
 
         <section class="card">
           <h2>Command Queue</h2>
-          {_table("Operator Queue", operator_queue)}
+          {_operator_queue_table(operator_queue)}
         </section>
 
 
