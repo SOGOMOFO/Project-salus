@@ -59,11 +59,33 @@ def _table(title: str, rows: list[dict[str, Any]]) -> str:
         """
 
     columns = list(rows[0].keys())
+    action_column = title.lower() == "missions" and "id" in columns
     headers = "".join(f"<th>{html.escape(col)}</th>" for col in columns)
+
+    if action_column:
+        headers += "<th>Actions</th>"
 
     body = ""
     for row in rows:
-        body += "<tr>" + "".join(f"<td>{_cell(row.get(col))}</td>" for col in columns) + "</tr>"
+        body += "<tr>" + "".join(f"<td>{_cell(row.get(col))}</td>" for col in columns)
+
+        if action_column:
+            mission_id = html.escape(str(row.get("id")))
+            body += f"""
+            <td class="actions">
+              <form method="post" action="/mission-control/mission/{mission_id}/status/active">
+                <button type="submit">Active</button>
+              </form>
+              <form method="post" action="/mission-control/mission/{mission_id}/status/blocked">
+                <button type="submit">Blocked</button>
+              </form>
+              <form method="post" action="/mission-control/mission/{mission_id}/status/complete">
+                <button type="submit">Complete</button>
+              </form>
+            </td>
+            """
+
+        body += "</tr>"
 
     return f"""
     <section class="card">
@@ -169,6 +191,29 @@ async def create_aar_from_ui(request: Request):
             "next_action": _form_value(form, "next_action", ""),
         },
     )
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
+
+
+@router.post("/mission-control/mission/{mission_id}/status/{status}")
+def update_mission_status_from_ui(mission_id: int, status: str):
+    allowed = {"active", "blocked", "complete"}
+    if status not in allowed:
+        return RedirectResponse("/mission-control/ui", status_code=303)
+
+    with _connect() as conn:
+        if _table_exists(conn, "missions"):
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(missions)").fetchall()
+            }
+
+            if "status" in columns and "id" in columns:
+                conn.execute(
+                    "UPDATE missions SET status = ? WHERE id = ?",
+                    (status, mission_id),
+                )
+                conn.commit()
 
     return RedirectResponse("/mission-control/ui", status_code=303)
 
