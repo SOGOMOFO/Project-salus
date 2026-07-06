@@ -3525,3 +3525,6 @@ app.include_router(_build_accelerator_router.router)
 
 from backend.routes import mission_control_ui as _mission_control_ui_router
 app.include_router(_mission_control_ui_router.router)
+
+from backend.routes import command_home as _command_home_router
+app.include_router(_command_home_router.router)
