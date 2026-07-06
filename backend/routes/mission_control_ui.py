@@ -192,6 +192,42 @@ def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], 
     ])
 
 
+def _mission_queue(rows: list[dict[str, Any]]) -> str:
+    active = [
+        row for row in rows
+        if str(row.get("status", "")).lower() not in {"complete", "completed", "done"}
+    ]
+
+    if not active:
+        return """
+        <section class="card">
+          <h2>Today Mission Queue</h2>
+          <p class="muted">No active missions. Create one mission to drive execution.</p>
+        </section>
+        """
+
+    items = ""
+    for index, mission in enumerate(active[:5], start=1):
+        items += f"""
+        <div class="queue-item">
+          <div class="queue-rank">#{index}</div>
+          <div>
+            <strong>{html.escape(str(mission.get("title", "Untitled Mission")))}</strong>
+            <p>{html.escape(str(mission.get("next_action", "No next action set.")))}</p>
+            <span>Status: {html.escape(str(mission.get("status", "")))} | Priority: {html.escape(str(mission.get("priority", "")))}</span>
+          </div>
+        </div>
+        """
+
+    return f"""
+    <section class="card">
+      <h2>Today Mission Queue</h2>
+      <p class="muted">Execute in order. Do not expand scope until #1 moves.</p>
+      {items}
+    </section>
+    """
+
+
 def _table(title: str, rows: list[dict[str, Any]]) -> str:
     if not rows:
         return f"""
@@ -406,6 +442,74 @@ def generate_daily_workflow_from_ui(workflow_type: str):
     return RedirectResponse("/mission-control/ui", status_code=303)
 
 
+@router.get("/mission-control/brief/latest", response_class=HTMLResponse)
+def latest_brief_print_view() -> str:
+    with _connect() as conn:
+        _ensure_commander_briefs_table(conn)
+        _ensure_daily_workflow_table(conn)
+
+        commander = _safe_rows(conn, "mission_control_briefs", 1)
+        workflows = _safe_rows(conn, "mission_control_daily_workflow", 1)
+
+    latest = commander[0] if commander else None
+    if workflows and (not latest or str(workflows[0].get("created_at", "")) > str(latest.get("created_at", ""))):
+        latest = workflows[0]
+
+    title = _value(latest, "title", default="No Brief Available") if latest else "No Brief Available"
+    content = _value(latest, "brief", "content", default="Generate a brief first.") if latest else "Generate a brief first."
+
+    return f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>{html.escape(title)}</title>
+      <style>
+        body {{
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          max-width: 900px;
+          margin: 40px auto;
+          padding: 20px;
+          line-height: 1.5;
+          color: #111;
+          background: #fff;
+        }}
+        pre {{
+          white-space: pre-wrap;
+          font-size: 15px;
+        }}
+        .actions {{
+          margin-bottom: 20px;
+        }}
+        button, a {{
+          display: inline-block;
+          margin-right: 8px;
+          padding: 10px 14px;
+          border: 1px solid #222;
+          border-radius: 8px;
+          color: #111;
+          background: #f4f4f4;
+          text-decoration: none;
+          cursor: pointer;
+        }}
+        @media print {{
+          .actions {{ display: none; }}
+          body {{ margin: 0; }}
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="actions">
+        <button onclick="window.print()">Print / Save PDF</button>
+        <a href="/mission-control/ui">Back to Mission Control</a>
+      </div>
+      <h1>{html.escape(title)}</h1>
+      <pre>{html.escape(content)}</pre>
+    </body>
+    </html>
+    """
+
+
 @router.get("/mission-control/ui", response_class=HTMLResponse)
 def mission_control_ui() -> str:
     with _connect() as conn:
@@ -554,7 +658,10 @@ def mission_control_ui() -> str:
           <h2>Commander Priority</h2>
           <p class="priority">{html.escape(top_priority)}</p>
           <p class="muted">Rule: build usable workflow before adding new doctrine.</p>
+          <p><a href="/mission-control/brief/latest">Print / Export Latest Brief</a></p>
         </section>
+
+        {_mission_queue(missions)}
 
 
         <section class="grid">
