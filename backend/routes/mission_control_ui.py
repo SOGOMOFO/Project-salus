@@ -505,9 +505,43 @@ def latest_brief_print_view() -> str:
       </div>
       <h1>{html.escape(title)}</h1>
       <pre>{html.escape(content)}</pre>
+
+      <script>
+        async function refreshLiveStatus() {{
+          try {{
+            const response = await fetch("/api/mission-control/live-status");
+            const data = await response.json();
+
+            document.getElementById("active-count").textContent = data.active_missions;
+            document.getElementById("blocked-count").textContent = data.blocked_missions;
+
+            const latest = data.latest_mission && data.latest_mission.title
+              ? data.latest_mission.title
+              : "No active mission";
+
+            document.getElementById("live-status").textContent =
+              "Live: " + data.status.toUpperCase() +
+              " | Active: " + data.active_missions +
+              " | Blocked: " + data.blocked_missions +
+              " | Focus: " + latest +
+              " | Updated: " + new Date().toLocaleTimeString();
+          }} catch (error) {{
+            document.getElementById("live-status").textContent = "Live status unavailable.";
+          }}
+        }}
+
+        refreshLiveStatus();
+        setInterval(refreshLiveStatus, 15000);
+      </script>
+
     </body>
     </html>
     """
+
+
+@router.get("/mission-control")
+def mission_control_default():
+    return RedirectResponse("/mission-control/v1", status_code=307)
 
 
 @router.get("/mission-control/ui", response_class=HTMLResponse)
@@ -743,6 +777,46 @@ def mission_control_ui() -> str:
     """
 
 
+@router.get("/api/mission-control/live-status")
+def mission_control_live_status():
+    with _connect() as conn:
+        _ensure_commander_briefs_table(conn)
+        _ensure_daily_workflow_table(conn)
+
+        missions = _safe_rows(conn, "missions", 100)
+        sitreps = _safe_rows(conn, "sitreps", 10)
+        aars = _safe_rows(conn, "aars", 10)
+        commander_briefs = _safe_rows(conn, "mission_control_briefs", 5)
+        daily_workflows = _safe_rows(conn, "mission_control_daily_workflow", 5)
+
+    active = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() not in {"complete", "completed", "done"}
+    ]
+    blocked = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "blocked"
+    ]
+
+    latest_mission = active[0] if active else None
+    latest_sitrep = sitreps[0] if sitreps else None
+    latest_aar = aars[0] if aars else None
+    latest_brief = commander_briefs[0] if commander_briefs else None
+    latest_workflow = daily_workflows[0] if daily_workflows else None
+
+    return {
+        "status": "ok",
+        "active_missions": len(active),
+        "blocked_missions": len(blocked),
+        "total_missions": len(missions),
+        "latest_mission": latest_mission,
+        "latest_sitrep": latest_sitrep,
+        "latest_aar": latest_aar,
+        "latest_brief": latest_brief,
+        "latest_workflow": latest_workflow,
+    }
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -944,11 +1018,12 @@ def mission_control_v1() -> str:
       <main>
         <section class="card full">
           <div class="metrics">
-            <div class="metric"><span>Active Missions</span><strong>{len(active)}</strong></div>
-            <div class="metric"><span>Blocked</span><strong>{len(blocked)}</strong></div>
+            <div class="metric"><span>Active Missions</span><strong id="active-count">{len(active)}</strong></div>
+            <div class="metric"><span>Blocked</span><strong id="blocked-count">{len(blocked)}</strong></div>
             <div class="metric"><span>SITREPs</span><strong>{len(sitreps)}</strong></div>
             <div class="metric"><span>AARs</span><strong>{len(aars)}</strong></div>
           </div>
+          <p id="live-status" class="muted">Live status initializing...</p>
         </section>
 
         <section class="card">
@@ -1018,6 +1093,35 @@ def mission_control_v1() -> str:
           <p class="muted">Latest lesson: {html.escape(_value(latest_aar, "lesson_learned", "lesson", default="None"))}</p>
         </section>
       </main>
+
+      <script>
+        async function refreshLiveStatus() {{
+          try {{
+            const response = await fetch("/api/mission-control/live-status");
+            const data = await response.json();
+
+            document.getElementById("active-count").textContent = data.active_missions;
+            document.getElementById("blocked-count").textContent = data.blocked_missions;
+
+            const latest = data.latest_mission && data.latest_mission.title
+              ? data.latest_mission.title
+              : "No active mission";
+
+            document.getElementById("live-status").textContent =
+              "Live: " + data.status.toUpperCase() +
+              " | Active: " + data.active_missions +
+              " | Blocked: " + data.blocked_missions +
+              " | Focus: " + latest +
+              " | Updated: " + new Date().toLocaleTimeString();
+          }} catch (error) {{
+            document.getElementById("live-status").textContent = "Live status unavailable.";
+          }}
+        }}
+
+        refreshLiveStatus();
+        setInterval(refreshLiveStatus, 15000);
+      </script>
+
     </body>
     </html>
     """
