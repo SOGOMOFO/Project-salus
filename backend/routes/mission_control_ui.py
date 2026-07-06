@@ -422,6 +422,21 @@ def mission_control_ui() -> str:
         <p class="muted">Private command dashboard for missions, SITREPs, AARs, agents, and execution focus.</p>
       </header>
 
+
+      <nav class="topnav">
+        <a href="/command-home">Command Home</a>
+        <a href="/command">Command OS</a>
+        <a href="/mission-control/ui">Mission Control</a>
+        <a href="/command/daily-driver">Daily Driver</a>
+        <a href="/command/dashboard-index">Dashboards</a>
+        <a href="/command/kernel">Kernel</a>
+        <a href="/command/memory">Memory</a>
+        <a href="/command/judgment">Judgment</a>
+        <a href="/command/teaching-engine">Teaching</a>
+        <a href="/command/records">Records</a>
+        <a href="/docs">API Docs</a>
+      </nav>
+
       <main>
         <section class="grid">
           <div class="card">
