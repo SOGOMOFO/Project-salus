@@ -577,7 +577,11 @@ def api_commander_brief():
         latest_sitrep.get("top_priority") if latest_sitrep else "No SITREP available.",
         "",
         "Latest AAR Lesson:",
-        latest_aar.get("lesson_learned") if latest_aar else "No AAR available.",
+        (
+            latest_aar.get("lesson_learned")
+            or latest_aar.get("lesson")
+            or "No AAR lesson captured."
+        ) if latest_aar else "No AAR available.",
         "",
         "Next Recommended Action:",
         snapshot["next_recommended_action"],
@@ -585,7 +589,7 @@ def api_commander_brief():
 
     return {
         "status": "ok",
-        "brief": "\n".join(brief_lines),
+        "brief": "\n".join(str(line) if line is not None else "" for line in brief_lines),
         "data": snapshot,
     }
 

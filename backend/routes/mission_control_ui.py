@@ -5,8 +5,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from urllib.parse import parse_qs
 
 
 router = APIRouter(tags=["mission-control-ui"])
@@ -75,6 +76,101 @@ def _table(title: str, rows: list[dict[str, Any]]) -> str:
       </div>
     </section>
     """
+
+
+def _form_value(form: dict[str, list[str]], key: str, default: str = "") -> str:
+    values = form.get(key)
+    if not values:
+        return default
+    return values[0].strip()
+
+
+def _insert_dynamic(table: str, values: dict[str, Any]) -> None:
+    with _connect() as conn:
+        if not _table_exists(conn, table):
+            return
+
+        existing_columns = {
+            row["name"]
+            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+
+        payload = {
+            key: value
+            for key, value in values.items()
+            if key in existing_columns
+        }
+
+        if not payload:
+            return
+
+        columns = ", ".join(payload.keys())
+        placeholders = ", ".join(["?"] * len(payload))
+        conn.execute(
+            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
+            tuple(payload.values()),
+        )
+        conn.commit()
+
+
+@router.post("/mission-control/mission")
+async def create_mission_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    _insert_dynamic(
+        "missions",
+        {
+            "title": _form_value(form, "title", "Untitled Mission"),
+            "status": _form_value(form, "status", "active"),
+            "priority": _form_value(form, "priority", "medium"),
+            "next_action": _form_value(form, "next_action", ""),
+        },
+    )
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
+
+
+@router.post("/mission-control/sitrep")
+async def create_sitrep_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    _insert_dynamic(
+        "sitreps",
+        {
+            "top_priority": _form_value(form, "top_priority", ""),
+            "blocker": _form_value(form, "blocker", ""),
+            "action_1": _form_value(form, "action_1", ""),
+            "action_2": _form_value(form, "action_2", ""),
+            "action_3": _form_value(form, "action_3", ""),
+        },
+    )
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
+
+
+@router.post("/mission-control/aar")
+async def create_aar_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mission_value = _form_value(form, "mission_id", "Mission Control")
+
+    _insert_dynamic(
+        "aars",
+        {
+            "mission": mission_value or "Mission Control",
+            "mission_id": mission_value,
+            "what_happened": _form_value(form, "what_happened", ""),
+            "what_worked": _form_value(form, "what_worked", ""),
+            "what_failed": _form_value(form, "what_failed", ""),
+            "lesson": _form_value(form, "lesson", ""),
+            "next_action": _form_value(form, "next_action", ""),
+        },
+    )
+
+    return RedirectResponse("/mission-control/ui", status_code=303)
 
 
 @router.get("/mission-control/ui", response_class=HTMLResponse)
@@ -206,6 +302,45 @@ def mission_control_ui() -> str:
           <h2>Commander Priority</h2>
           <p class="priority">{html.escape(top_priority)}</p>
           <p class="muted">Rule: build usable workflow before adding new doctrine.</p>
+        </section>
+
+
+        <section class="grid">
+          <section class="card">
+            <h2>Add Mission</h2>
+            <form method="post" action="/mission-control/mission">
+              <input name="title" placeholder="Mission title" required>
+              <input name="priority" placeholder="Priority: high / medium / low" value="high">
+              <input name="status" placeholder="Status" value="active">
+              <textarea name="next_action" placeholder="Next action"></textarea>
+              <button type="submit">Create Mission</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <h2>Add SITREP</h2>
+            <form method="post" action="/mission-control/sitrep">
+              <input name="top_priority" placeholder="Top priority" required>
+              <input name="blocker" placeholder="Blocker">
+              <input name="action_1" placeholder="Action 1">
+              <input name="action_2" placeholder="Action 2">
+              <input name="action_3" placeholder="Action 3">
+              <button type="submit">Submit SITREP</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <h2>Add AAR</h2>
+            <form method="post" action="/mission-control/aar">
+              <input name="mission_id" placeholder="Mission ID optional">
+              <textarea name="what_happened" placeholder="What happened?"></textarea>
+              <textarea name="what_worked" placeholder="What worked?"></textarea>
+              <textarea name="what_failed" placeholder="What failed?"></textarea>
+              <textarea name="lesson" placeholder="Lesson learned"></textarea>
+              <textarea name="next_action" placeholder="Next adjustment"></textarea>
+              <button type="submit">Capture AAR</button>
+            </form>
+          </section>
         </section>
 
         {_table("Missions", missions)}
