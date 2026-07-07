@@ -955,6 +955,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/connectors",
         "/api/mission-control/agent-runtime",
         "/api/mission-control/firewall",
+        "/api/mission-control/tool-adapters",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1430,6 +1431,7 @@ def export_command_state() -> dict[str, Any]:
         "connectors": get_connector_registry_state(),
         "agent_runtime": get_agent_runtime_state(),
         "external_action_firewall": get_external_action_firewall_state(),
+        "tool_adapters": get_tool_adapter_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1445,6 +1447,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "connectors": get_connector_registry_state().get("status") == "ok",
         "agent_runtime": get_agent_runtime_state().get("status") == "ok",
         "external_action_firewall": get_external_action_firewall_state().get("status") == "ok",
+        "tool_adapters": get_tool_adapter_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -2179,7 +2182,15 @@ def classify_external_action(connector_key: str, action_type: str, payload: dict
     critical_terms = {"send_money", "trade", "delete_account", "credential_change", "wire", "payment"}
     high_terms = {"send_email", "create_event", "delete", "external_write", "post_webhook", "modify_file"}
     medium_terms = {"draft_email", "read_email", "read_calendar", "read_finance", "summarize_file"}
-    low_terms = {"read_local", "summarize_local", "status_check", "list"}
+    low_terms = {
+        "read_local",
+        "summarize_local",
+        "status_check",
+        "list",
+        "list_project_files",
+        "read_project_file",
+        "summarize_project_file",
+    }
 
     if action in critical_terms or connector == "finance" and action not in {"read_finance", "status_check"}:
         risk = "critical"
@@ -2548,5 +2559,465 @@ def get_external_action_firewall_state() -> dict[str, Any]:
             else "Approve or reject pending external actions."
             if posture == "approval_required"
             else "External action firewall is clear."
+        ),
+    }
+
+
+def ensure_tool_adapter_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_tool_adapters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                adapter_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                adapter_type TEXT NOT NULL,
+                connector_key TEXT NOT NULL,
+                status TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                allowed_actions TEXT NOT NULL,
+                permission_level TEXT NOT NULL,
+                description TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_tool_adapter_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                adapter_key TEXT NOT NULL,
+                action_name TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT NOT NULL,
+                firewall_action_id TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def seed_default_tool_adapters() -> None:
+    ensure_tool_adapter_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    defaults = [
+        {
+            "adapter_key": "local_files",
+            "name": "Local File Adapter",
+            "adapter_type": "local_file",
+            "connector_key": "files",
+            "status": "ready",
+            "enabled": 1,
+            "allowed_actions": "list_project_files,read_project_file,summarize_project_file",
+            "permission_level": "local_read",
+            "description": "Safe local adapter for listing and reading project files inside the local repo boundary.",
+        },
+        {
+            "adapter_key": "gmail_adapter",
+            "name": "Gmail Adapter",
+            "adapter_type": "email",
+            "connector_key": "gmail",
+            "status": "planned",
+            "enabled": 0,
+            "allowed_actions": "search_email,read_email,draft_email",
+            "permission_level": "external_read_write",
+            "description": "Planned Gmail adapter. External execution will require firewall approval.",
+        },
+        {
+            "adapter_key": "calendar_adapter",
+            "name": "Calendar Adapter",
+            "adapter_type": "calendar",
+            "connector_key": "google_calendar",
+            "status": "planned",
+            "enabled": 0,
+            "allowed_actions": "read_calendar,create_event",
+            "permission_level": "external_read_write",
+            "description": "Planned calendar adapter. Write actions require firewall approval.",
+        },
+    ]
+
+    with store.connect() as conn:
+        for adapter in defaults:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_tool_adapters
+                (
+                    adapter_key, name, adapter_type, connector_key, status,
+                    enabled, allowed_actions, permission_level, description,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    adapter["adapter_key"],
+                    adapter["name"],
+                    adapter["adapter_type"],
+                    adapter["connector_key"],
+                    adapter["status"],
+                    adapter["enabled"],
+                    adapter["allowed_actions"],
+                    adapter["permission_level"],
+                    adapter["description"],
+                    now,
+                    now,
+                ),
+            )
+
+        conn.commit()
+
+
+def list_tool_adapters(limit: int = 100) -> list[dict[str, Any]]:
+    seed_default_tool_adapters()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_tool_adapters ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_tool_adapter(adapter_key: str) -> dict[str, Any] | None:
+    seed_default_tool_adapters()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_tool_adapters WHERE adapter_key = ?",
+            (adapter_key,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def upsert_tool_adapter_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_tool_adapter_tables()
+
+    adapter_key = str(payload.get("adapter_key") or "").strip().lower().replace(" ", "_")
+    if not adapter_key:
+        return {"status": "failed", "reason": "adapter_key_required"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO mission_control_tool_adapters
+            (
+                adapter_key, name, adapter_type, connector_key, status,
+                enabled, allowed_actions, permission_level, description,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(adapter_key) DO UPDATE SET
+                name = excluded.name,
+                adapter_type = excluded.adapter_type,
+                connector_key = excluded.connector_key,
+                status = excluded.status,
+                enabled = excluded.enabled,
+                allowed_actions = excluded.allowed_actions,
+                permission_level = excluded.permission_level,
+                description = excluded.description,
+                updated_at = excluded.updated_at
+            """,
+            (
+                adapter_key,
+                payload.get("name") or adapter_key,
+                payload.get("adapter_type") or "generic",
+                payload.get("connector_key") or "unknown",
+                payload.get("status") or "planned",
+                1 if payload.get("enabled") in {True, 1, "1", "true", "yes", "on"} else 0,
+                payload.get("allowed_actions") or "",
+                payload.get("permission_level") or "external_read",
+                payload.get("description") or "",
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("actor") or "commander",
+        action="tool_adapter_upserted",
+        target_type="tool_adapter",
+        target_id=adapter_key,
+        detail=f"Tool adapter {adapter_key} saved.",
+    )
+
+    return get_tool_adapter(adapter_key) or {"status": "failed", "reason": "adapter_not_found_after_upsert"}
+
+
+def set_tool_adapter_enabled(adapter_key: str, enabled: bool, actor: str = "commander") -> dict[str, Any]:
+    ensure_tool_adapter_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_tool_adapters WHERE adapter_key = ?",
+            (adapter_key,),
+        ).fetchone()
+
+        if row is None:
+            return {"status": "not_found", "adapter_key": adapter_key}
+
+        conn.execute(
+            """
+            UPDATE mission_control_tool_adapters
+            SET enabled = ?, updated_at = ?
+            WHERE adapter_key = ?
+            """,
+            (1 if enabled else 0, now, adapter_key),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="tool_adapter_enabled_changed",
+        target_type="tool_adapter",
+        target_id=adapter_key,
+        detail=f"Tool adapter enabled={enabled}.",
+    )
+
+    return get_tool_adapter(adapter_key) or {"status": "not_found", "adapter_key": adapter_key}
+
+
+def _safe_project_path(relative_path: str | None = None) -> Path:
+    root = Path(".").resolve()
+    candidate = (root / (relative_path or ".")).resolve()
+
+    if root not in candidate.parents and candidate != root:
+        raise ValueError("Path escapes project boundary.")
+
+    return candidate
+
+
+def _run_local_file_adapter(action_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    action = str(action_name or "").lower()
+
+    if action == "list_project_files":
+        base = _safe_project_path(payload.get("path") or ".")
+        if not base.exists():
+            return {"status": "not_found", "path": str(base)}
+        if not base.is_dir():
+            return {"status": "not_directory", "path": str(base)}
+
+        files = []
+        for item in sorted(base.iterdir(), key=lambda p: p.name.lower())[:200]:
+            if item.name.startswith(".git"):
+                continue
+            files.append(
+                {
+                    "name": item.name,
+                    "path": str(item.relative_to(Path(".").resolve())),
+                    "is_dir": item.is_dir(),
+                    "size_bytes": item.stat().st_size if item.is_file() else 0,
+                }
+            )
+
+        return {
+            "status": "ok",
+            "action": action,
+            "path": str(base),
+            "files": files,
+        }
+
+    if action in {"read_project_file", "summarize_project_file"}:
+        target = _safe_project_path(payload.get("path") or "")
+        if not target.exists():
+            return {"status": "not_found", "path": str(target)}
+        if not target.is_file():
+            return {"status": "not_file", "path": str(target)}
+
+        max_bytes = int(payload.get("max_bytes") or 8000)
+        raw = target.read_bytes()[:max(1, min(max_bytes, 50000))]
+        text = raw.decode("utf-8", errors="replace")
+
+        if action == "summarize_project_file":
+            lines = text.splitlines()
+            summary = {
+                "line_count_sampled": len(lines),
+                "char_count_sampled": len(text),
+                "first_lines": lines[:10],
+            }
+            return {
+                "status": "ok",
+                "action": action,
+                "path": str(target),
+                "summary": summary,
+            }
+
+        return {
+            "status": "ok",
+            "action": action,
+            "path": str(target),
+            "content": text,
+            "truncated": len(raw) >= max_bytes,
+        }
+
+    return {
+        "status": "unsupported_action",
+        "action": action,
+        "supported_actions": [
+            "list_project_files",
+            "read_project_file",
+            "summarize_project_file",
+        ],
+    }
+
+
+def execute_tool_adapter_action(
+    adapter_key: str,
+    action_name: str,
+    payload: dict[str, Any] | None = None,
+    actor: str = "tool_adapter_runtime",
+) -> dict[str, Any]:
+    import json
+
+    seed_default_tool_adapters()
+    payload = payload or {}
+
+    adapter = get_tool_adapter(adapter_key)
+    if not adapter:
+        return {"status": "not_found", "adapter_key": adapter_key}
+
+    if int(adapter.get("enabled") or 0) != 1:
+        return {"status": "disabled", "adapter_key": adapter_key}
+
+    allowed_actions = {
+        item.strip()
+        for item in str(adapter.get("allowed_actions") or "").split(",")
+        if item.strip()
+    }
+
+    if action_name not in allowed_actions:
+        return {
+            "status": "action_not_allowed",
+            "adapter_key": adapter_key,
+            "action_name": action_name,
+            "allowed_actions": sorted(allowed_actions),
+        }
+
+    classification = classify_external_action(
+        connector_key=adapter.get("connector_key") or "unknown",
+        action_type=action_name,
+        payload=payload,
+    )
+
+    firewall_action_id = None
+
+    if classification.get("requires_approval"):
+        firewall_action = create_external_action_request(
+            {
+                "connector_key": adapter.get("connector_key"),
+                "action_type": action_name,
+                "title": f"{adapter_key}:{action_name}",
+                "requested_by": actor,
+                "payload": payload,
+            }
+        )
+        firewall_action_id = firewall_action.get("id")
+
+        result = {
+            "status": "pending_firewall_approval",
+            "adapter_key": adapter_key,
+            "action_name": action_name,
+            "firewall_action_id": firewall_action_id,
+            "classification": classification,
+        }
+    else:
+        if adapter_key == "local_files":
+            try:
+                result = _run_local_file_adapter(action_name, payload)
+            except ValueError as exc:
+                result = {
+                    "status": "blocked",
+                    "adapter_key": adapter_key,
+                    "action_name": action_name,
+                    "reason": str(exc),
+                }
+        else:
+            result = {
+                "status": "adapter_placeholder",
+                "adapter_key": adapter_key,
+                "action_name": action_name,
+                "message": "Adapter interface exists; real implementation not attached yet.",
+            }
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_tool_adapter_runs
+            (adapter_key, action_name, payload, status, result, firewall_action_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                adapter_key,
+                action_name,
+                json.dumps(payload),
+                result.get("status") or "unknown",
+                json.dumps(result),
+                str(firewall_action_id or ""),
+                now,
+            ),
+        )
+        run_id = cursor.lastrowid
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="tool_adapter_action_executed",
+        target_type="tool_adapter",
+        target_id=adapter_key,
+        detail=f"Adapter action {action_name} returned {result.get('status')}.",
+    )
+
+    result["run_id"] = run_id
+    return result
+
+
+def list_tool_adapter_runs(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_tool_adapter_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_tool_adapter_runs ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_tool_adapter_state() -> dict[str, Any]:
+    adapters = list_tool_adapters()
+    runs = list_tool_adapter_runs(100)
+
+    enabled = [adapter for adapter in adapters if int(adapter.get("enabled") or 0) == 1]
+    ready = [adapter for adapter in adapters if str(adapter.get("status") or "").lower() == "ready"]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "total": len(adapters),
+            "enabled": len(enabled),
+            "ready": len(ready),
+            "runs": len(runs),
+        },
+        "adapters": adapters,
+        "runs": runs,
+        "recommended_action": (
+            "Use the local file adapter to validate safe adapter execution."
+            if enabled
+            else "Enable a safe local adapter before execution."
         ),
     }
