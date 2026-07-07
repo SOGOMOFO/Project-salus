@@ -54,7 +54,7 @@ def test_mission_control_status_action_redirects():
 
 
 def test_mission_control_ui_contains_action_buttons():
-    response = client.get("/mission-control/ui")
+    response = client.get("/mission-control/ui", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Complete" in response.text
     assert "Blocked" in response.text

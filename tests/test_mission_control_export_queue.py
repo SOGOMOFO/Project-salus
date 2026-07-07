@@ -17,7 +17,7 @@ def test_latest_brief_print_view_loads():
 
 
 def test_mission_control_ui_contains_export_and_queue():
-    response = client.get("/mission-control/ui")
+    response = client.get("/mission-control/ui", headers={"x-salus-token": "salus-local-token"})
 
     assert response.status_code == 200
     assert "Today Mission Queue" in response.text

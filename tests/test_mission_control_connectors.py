@@ -85,7 +85,7 @@ def test_connector_events_api():
 
 
 def test_connector_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Connector Registry" in response.text

@@ -88,7 +88,7 @@ def test_tool_adapter_runs_api():
 
 
 def test_tool_adapter_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Tool Adapter Interface" in response.text

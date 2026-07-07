@@ -7,7 +7,7 @@ client = TestClient(app)
 
 
 def test_mission_control_default_redirects_to_v1():
-    response = client.get("/mission-control", follow_redirects=False)
+    response = client.get("/mission-control", headers={"x-salus-token": "salus-local-token"}, follow_redirects=False)
     assert response.status_code == 307
     assert response.headers["location"] == "/mission-control/v1"
 
@@ -24,7 +24,7 @@ def test_mission_control_live_status_returns_counts():
 
 
 def test_mission_control_v1_contains_live_status_script():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "live-status" in response.text
     assert "/api/mission-control/live-status" in response.text

@@ -48,7 +48,7 @@ def test_generate_evening_aar_persists():
 
 
 def test_mission_control_ui_contains_daily_workflow_engine():
-    response = client.get("/mission-control/ui")
+    response = client.get("/mission-control/ui", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Daily Workflow Engine" in response.text
     assert "Generate Morning Brief" in response.text

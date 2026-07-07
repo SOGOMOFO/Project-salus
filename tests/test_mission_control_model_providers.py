@@ -96,7 +96,7 @@ def test_reasoning_requests_list_api():
 
 
 def test_model_provider_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Model Provider Router" in response.text

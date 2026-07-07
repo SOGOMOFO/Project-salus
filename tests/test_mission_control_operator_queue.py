@@ -77,7 +77,7 @@ def test_update_operator_queue_item_status():
 
 
 def test_mission_control_v1_contains_operator_inbox():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Operator Inbox" in response.text
     assert "Command Queue" in response.text

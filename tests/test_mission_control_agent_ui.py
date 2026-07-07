@@ -14,7 +14,7 @@ def _db_path() -> Path:
 
 
 def test_mission_control_v1_contains_agent_execution_panel():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Agent Execution Registry" in response.text
     assert "Agent Tasks" in response.text

@@ -7,7 +7,7 @@ client = TestClient(app)
 
 
 def test_mission_control_has_navigation_shell():
-    response = client.get("/mission-control/ui")
+    response = client.get("/mission-control/ui", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Command Home" in response.text
     assert "/command-home" in response.text

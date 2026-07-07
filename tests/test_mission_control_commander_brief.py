@@ -35,7 +35,7 @@ def test_generate_commander_brief_redirects_and_persists():
 
 
 def test_mission_control_ui_contains_commander_brief_button():
-    response = client.get("/mission-control/ui")
+    response = client.get("/mission-control/ui", headers={"x-salus-token": "salus-local-token"})
 
     assert response.status_code == 200
     assert "Daily Commander Brief" in response.text

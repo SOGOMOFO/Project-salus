@@ -66,7 +66,7 @@ def test_local_mvp_readiness_api():
 
 
 def test_v1_contains_final_mvp_panels():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Memory / Records Link-In" in response.text

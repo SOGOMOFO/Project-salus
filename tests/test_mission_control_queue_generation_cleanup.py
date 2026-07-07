@@ -93,7 +93,7 @@ def test_cleanup_done_queue_items():
 
 
 def test_mission_control_v1_contains_queue_generation_buttons():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Generate Missions from Queue" in response.text
     assert "Cleanup Done Items" in response.text

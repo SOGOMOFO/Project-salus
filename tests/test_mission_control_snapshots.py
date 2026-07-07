@@ -64,7 +64,7 @@ def test_restore_snapshot_api():
 
 
 def test_snapshot_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Snapshot Backup System" in response.text

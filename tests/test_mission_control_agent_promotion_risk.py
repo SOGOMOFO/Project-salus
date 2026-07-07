@@ -106,7 +106,7 @@ def test_high_risk_promotion_requires_approval():
 
 
 def test_v1_contains_risk_dashboard_and_promotion_button():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Agent Risk Dashboard" in response.text
     assert "Promote to Mission" in response.text

@@ -958,6 +958,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/tool-adapters",
         "/api/mission-control/model-providers",
         "/api/mission-control/background-jobs",
+        "/api/mission-control/auth/status",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1436,6 +1437,7 @@ def export_command_state() -> dict[str, Any]:
         "tool_adapters": get_tool_adapter_state(),
         "model_providers": get_model_provider_state(),
         "background_jobs": get_background_job_state(),
+        "local_auth": get_local_auth_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1454,6 +1456,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "tool_adapters": get_tool_adapter_state().get("status") == "ok",
         "model_providers": get_model_provider_state().get("status") == "ok",
         "background_jobs": get_background_job_state().get("status") == "ok",
+        "local_auth": get_local_auth_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -3888,4 +3891,72 @@ def get_background_job_state() -> dict[str, Any]:
             if jobs
             else "Seed background jobs."
         ),
+    }
+
+
+# -------------------------------------------------------------------
+# Local Dashboard Authentication / Access Gate
+# -------------------------------------------------------------------
+
+def get_local_auth_config() -> dict[str, Any]:
+    import os
+
+    enabled_raw = os.getenv("SALUS_AUTH_ENABLED", "true").lower().strip()
+    password = os.getenv("SALUS_LOCAL_PASSWORD", "salus-local")
+    token = os.getenv("SALUS_LOCAL_TOKEN", "salus-local-token")
+
+    enabled = enabled_raw not in {"0", "false", "no", "off"}
+
+    return {
+        "status": "ok",
+        "enabled": enabled,
+        "password_set": bool(password),
+        "token_set": bool(token),
+        "cookie_name": "salus_access",
+        "login_path": "/mission-control/login",
+        "default_password_warning": password == "salus-local",
+        "recommended_action": (
+            "Set SALUS_LOCAL_PASSWORD before exposing this outside localhost."
+            if password == "salus-local"
+            else "Local dashboard access gate configured."
+        ),
+    }
+
+
+def verify_local_auth_password(password: str) -> bool:
+    import os
+    import hmac
+
+    expected = os.getenv("SALUS_LOCAL_PASSWORD", "salus-local")
+    return hmac.compare_digest(str(password or ""), expected)
+
+
+def verify_local_auth_token(token: str | None) -> bool:
+    import os
+    import hmac
+
+    config = get_local_auth_config()
+    if not config.get("enabled"):
+        return True
+
+    expected = os.getenv("SALUS_LOCAL_TOKEN", "salus-local-token")
+    return hmac.compare_digest(str(token or ""), expected)
+
+
+def local_auth_cookie_value() -> str:
+    import os
+
+    return os.getenv("SALUS_LOCAL_TOKEN", "salus-local-token")
+
+
+def get_local_auth_state() -> dict[str, Any]:
+    config = get_local_auth_config()
+
+    return {
+        "status": "ok",
+        "auth_enabled": config["enabled"],
+        "password_set": config["password_set"],
+        "token_set": config["token_set"],
+        "default_password_warning": config["default_password_warning"],
+        "recommended_action": config["recommended_action"],
     }

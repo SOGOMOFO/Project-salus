@@ -13,6 +13,8 @@ from urllib.parse import parse_qs
 from backend import mission_control_store as mc_store
 from backend import mission_control_service as mc_service
 from backend import mission_control_views as mc_views
+from backend.routes.mission_control_auth import require_local_dashboard_auth
+
 
 
 router = APIRouter(tags=["mission-control-ui"])
@@ -479,12 +481,20 @@ def latest_brief_print_view() -> str:
 
 
 @router.get("/mission-control")
-def mission_control_default():
+def mission_control_default(request: Request):
+    auth_redirect = require_local_dashboard_auth(request)
+    if auth_redirect:
+        return auth_redirect
+
     return RedirectResponse("/mission-control/v1", status_code=307)
 
-
 @router.get("/mission-control/ui", response_class=HTMLResponse)
-def mission_control_ui() -> str:
+def mission_control_ui(request: Request) -> str:
+    auth_redirect = require_local_dashboard_auth(request)
+    if auth_redirect:
+        return auth_redirect
+
+
     with _connect() as conn:
         _ensure_commander_briefs_table(conn)
         missions = _safe_rows(conn, "missions", 10)
@@ -608,6 +618,11 @@ def mission_control_ui() -> str:
         <a href="/command/records">Records</a>
         <a href="/docs">API Docs</a>
       </nav>
+
+
+        <form method="post" action="/mission-control/logout" style="display:inline;">
+          <button type="submit">Logout</button>
+        </form>
 
       <main>
         <section class="grid">
@@ -1071,6 +1086,11 @@ def disable_background_job_from_ui(job_key: str):
 
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
+    auth_redirect = require_local_dashboard_auth(request)
+    if auth_redirect:
+        return auth_redirect
+
+
     with _connect() as conn:
         _ensure_commander_briefs_table(conn)
         _ensure_daily_workflow_table(conn)

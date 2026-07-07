@@ -161,7 +161,7 @@ def test_firewall_events_api():
 
 
 def test_firewall_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "External Action Firewall" in response.text

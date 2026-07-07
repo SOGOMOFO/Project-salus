@@ -62,6 +62,6 @@ def test_convert_operator_queue_item_to_mission():
 
 
 def test_mission_control_v1_contains_convert_to_mission_button():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
     assert "Convert to Mission" in response.text

@@ -65,7 +65,7 @@ def test_background_job_runs_api():
 
 
 def test_background_job_ui_panel_present():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "Background Job Scheduler" in response.text

@@ -43,7 +43,7 @@ def test_mission_control_health_api():
 
 
 def test_mission_control_v1_contains_system_health_panel():
-    response = client.get("/mission-control/v1")
+    response = client.get("/mission-control/v1", headers={"x-salus-token": "salus-local-token"})
     assert response.status_code == 200
 
     assert "System Health" in response.text
