@@ -4536,3 +4536,112 @@ def get_connector_permission_policy_state():
             else "Investigate write-enabled connectors before proceeding."
         ),
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Gmail Read-Only Connector Shell
+# -----------------------------------------------------------------------------
+
+GMAIL_READ_ONLY_CAPABILITIES = [
+    {
+        "capability": "list_recent_email_metadata",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "List recent Gmail metadata after connector activation.",
+    },
+    {
+        "capability": "search_email_metadata",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "Search Gmail metadata after connector activation.",
+    },
+    {
+        "capability": "summarize_email_thread",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "Summarize selected email threads after connector activation.",
+    },
+]
+
+GMAIL_READ_ONLY_BLOCKED_ACTIONS = [
+    "send",
+    "draft",
+    "reply",
+    "forward",
+    "archive",
+    "delete",
+    "label",
+    "move",
+    "mark_read",
+    "mark_unread",
+]
+
+
+def list_gmail_read_only_capabilities():
+    return GMAIL_READ_ONLY_CAPABILITIES
+
+
+def get_gmail_read_only_connector_state():
+    permission = evaluate_connector_permission(
+        "gmail_read_only",
+        "read",
+        "medium",
+    )
+
+    return {
+        "status": "ok",
+        "connector_key": "gmail_read_only",
+        "display_name": "Gmail Read-Only Connector",
+        "mode": "shell",
+        "live_access_enabled": False,
+        "read_only": True,
+        "write_actions_blocked": True,
+        "blocked_actions": GMAIL_READ_ONLY_BLOCKED_ACTIONS,
+        "capabilities": list_gmail_read_only_capabilities(),
+        "permission_check": permission,
+        "recommended_action": (
+            "Keep Gmail connector in shell mode until explicit read-only activation is approved."
+        ),
+    }
+
+
+def evaluate_gmail_read_only_request(action_type, risk_level="medium"):
+    action = str(action_type or "").lower().strip()
+
+    if action in GMAIL_READ_ONLY_BLOCKED_ACTIONS:
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": "gmail_read_only",
+            "action_type": action,
+            "risk_level": risk_level,
+            "reason": "Gmail write or mutation action blocked by read-only connector shell.",
+        }
+
+    return evaluate_connector_permission(
+        "gmail_read_only",
+        action,
+        risk_level,
+    )
+
+
+def get_gmail_read_only_activation_plan():
+    return {
+        "status": "planned",
+        "connector_key": "gmail_read_only",
+        "activation_steps": [
+            "Confirm connector permission profile remains read-only.",
+            "Confirm no write, send, delete, archive, label, or draft operations are exposed.",
+            "Add explicit commander approval gate before live Gmail access.",
+            "Add audit logging for every Gmail read request.",
+            "Add tests proving write actions remain blocked.",
+        ],
+        "required_controls": [
+            "read_only_scope",
+            "approval_gate",
+            "audit_log",
+            "permission_profile_check",
+            "no_write_actions",
+        ],
+    }
