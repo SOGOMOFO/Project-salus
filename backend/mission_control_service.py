@@ -956,6 +956,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/agent-runtime",
         "/api/mission-control/firewall",
         "/api/mission-control/tool-adapters",
+        "/api/mission-control/model-providers",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1432,6 +1433,7 @@ def export_command_state() -> dict[str, Any]:
         "agent_runtime": get_agent_runtime_state(),
         "external_action_firewall": get_external_action_firewall_state(),
         "tool_adapters": get_tool_adapter_state(),
+        "model_providers": get_model_provider_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1448,6 +1450,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "agent_runtime": get_agent_runtime_state().get("status") == "ok",
         "external_action_firewall": get_external_action_firewall_state().get("status") == "ok",
         "tool_adapters": get_tool_adapter_state().get("status") == "ok",
+        "model_providers": get_model_provider_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -3020,4 +3023,516 @@ def get_tool_adapter_state() -> dict[str, Any]:
             if enabled
             else "Enable a safe local adapter before execution."
         ),
+    }
+
+
+def ensure_model_provider_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_model_providers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                provider_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                priority INTEGER NOT NULL,
+                permission_level TEXT NOT NULL,
+                config_summary TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_model_routes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_key TEXT NOT NULL UNIQUE,
+                purpose TEXT NOT NULL,
+                primary_provider TEXT NOT NULL,
+                fallback_provider TEXT NOT NULL,
+                policy TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_reasoning_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_key TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                context TEXT NOT NULL,
+                status TEXT NOT NULL,
+                provider_used TEXT NOT NULL,
+                result TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def seed_default_model_providers() -> None:
+    ensure_model_provider_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    providers = [
+        {
+            "provider_key": "local_placeholder",
+            "name": "Local Placeholder Reasoner",
+            "provider_type": "local_placeholder",
+            "status": "ready",
+            "enabled": 1,
+            "priority": 1,
+            "permission_level": "local_reasoning",
+            "config_summary": "Safe local placeholder for model-routing tests. No external model call.",
+        },
+        {
+            "provider_key": "openai_future",
+            "name": "OpenAI Future Provider",
+            "provider_type": "external_model",
+            "status": "planned",
+            "enabled": 0,
+            "priority": 2,
+            "permission_level": "external_model_runtime",
+            "config_summary": "Planned external model provider. Requires model firewall and API key configuration.",
+        },
+        {
+            "provider_key": "local_llm_future",
+            "name": "Local LLM Future Provider",
+            "provider_type": "local_model",
+            "status": "planned",
+            "enabled": 0,
+            "priority": 3,
+            "permission_level": "local_model_runtime",
+            "config_summary": "Planned local model provider for offline/decentralized reasoning.",
+        },
+    ]
+
+    routes = [
+        {
+            "route_key": "general_reasoning",
+            "purpose": "General Salus reasoning and planning",
+            "primary_provider": "local_placeholder",
+            "fallback_provider": "local_placeholder",
+            "policy": "Use safe local placeholder until real providers are configured.",
+            "enabled": 1,
+        },
+        {
+            "route_key": "daily_brief",
+            "purpose": "Daily command brief generation",
+            "primary_provider": "local_placeholder",
+            "fallback_provider": "local_placeholder",
+            "policy": "Local placeholder for brief synthesis.",
+            "enabled": 1,
+        },
+        {
+            "route_key": "risk_review",
+            "purpose": "Risk classification and action review",
+            "primary_provider": "local_placeholder",
+            "fallback_provider": "local_placeholder",
+            "policy": "Use conservative local placeholder for risk summaries.",
+            "enabled": 1,
+        },
+    ]
+
+    with store.connect() as conn:
+        for provider in providers:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_model_providers
+                (
+                    provider_key, name, provider_type, status, enabled,
+                    priority, permission_level, config_summary, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    provider["provider_key"],
+                    provider["name"],
+                    provider["provider_type"],
+                    provider["status"],
+                    provider["enabled"],
+                    provider["priority"],
+                    provider["permission_level"],
+                    provider["config_summary"],
+                    now,
+                    now,
+                ),
+            )
+
+        for route in routes:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_model_routes
+                (
+                    route_key, purpose, primary_provider, fallback_provider,
+                    policy, enabled, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    route["route_key"],
+                    route["purpose"],
+                    route["primary_provider"],
+                    route["fallback_provider"],
+                    route["policy"],
+                    route["enabled"],
+                    now,
+                    now,
+                ),
+            )
+
+        conn.commit()
+
+
+def list_model_providers(limit: int = 100) -> list[dict[str, Any]]:
+    seed_default_model_providers()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_model_providers ORDER BY priority ASC, id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_model_provider(provider_key: str) -> dict[str, Any] | None:
+    seed_default_model_providers()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_model_providers WHERE provider_key = ?",
+            (provider_key,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_model_routes(limit: int = 100) -> list[dict[str, Any]]:
+    seed_default_model_providers()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_model_routes ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_model_route(route_key: str) -> dict[str, Any] | None:
+    seed_default_model_providers()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_model_routes WHERE route_key = ?",
+            (route_key,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def upsert_model_provider_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_model_provider_tables()
+
+    provider_key = str(payload.get("provider_key") or "").strip().lower().replace(" ", "_")
+    if not provider_key:
+        return {"status": "failed", "reason": "provider_key_required"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO mission_control_model_providers
+            (
+                provider_key, name, provider_type, status, enabled, priority,
+                permission_level, config_summary, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(provider_key) DO UPDATE SET
+                name = excluded.name,
+                provider_type = excluded.provider_type,
+                status = excluded.status,
+                enabled = excluded.enabled,
+                priority = excluded.priority,
+                permission_level = excluded.permission_level,
+                config_summary = excluded.config_summary,
+                updated_at = excluded.updated_at
+            """,
+            (
+                provider_key,
+                payload.get("name") or provider_key,
+                payload.get("provider_type") or "generic_model",
+                payload.get("status") or "planned",
+                1 if payload.get("enabled") in {True, 1, "1", "true", "yes", "on"} else 0,
+                int(payload.get("priority") or 10),
+                payload.get("permission_level") or "external_model_runtime",
+                payload.get("config_summary") or "",
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("actor") or "commander",
+        action="model_provider_upserted",
+        target_type="model_provider",
+        target_id=provider_key,
+        detail=f"Model provider {provider_key} saved.",
+    )
+
+    return get_model_provider(provider_key) or {"status": "failed", "reason": "provider_not_found_after_upsert"}
+
+
+def upsert_model_route_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_model_provider_tables()
+
+    route_key = str(payload.get("route_key") or "").strip().lower().replace(" ", "_")
+    if not route_key:
+        return {"status": "failed", "reason": "route_key_required"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO mission_control_model_routes
+            (
+                route_key, purpose, primary_provider, fallback_provider,
+                policy, enabled, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(route_key) DO UPDATE SET
+                purpose = excluded.purpose,
+                primary_provider = excluded.primary_provider,
+                fallback_provider = excluded.fallback_provider,
+                policy = excluded.policy,
+                enabled = excluded.enabled,
+                updated_at = excluded.updated_at
+            """,
+            (
+                route_key,
+                payload.get("purpose") or "General reasoning route",
+                payload.get("primary_provider") or "local_placeholder",
+                payload.get("fallback_provider") or "local_placeholder",
+                payload.get("policy") or "Use local placeholder until configured.",
+                1 if payload.get("enabled") in {True, 1, "1", "true", "yes", "on"} else 0,
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("actor") or "commander",
+        action="model_route_upserted",
+        target_type="model_route",
+        target_id=route_key,
+        detail=f"Model route {route_key} saved.",
+    )
+
+    return get_model_route(route_key) or {"status": "failed", "reason": "route_not_found_after_upsert"}
+
+
+def _select_model_provider_for_route(route_key: str) -> dict[str, Any]:
+    seed_default_model_providers()
+
+    route = get_model_route(route_key) or get_model_route("general_reasoning")
+    if not route:
+        return {
+            "status": "failed",
+            "reason": "no_model_route_available",
+            "provider_key": "none",
+        }
+
+    for provider_key in [route.get("primary_provider"), route.get("fallback_provider"), "local_placeholder"]:
+        provider = get_model_provider(str(provider_key or ""))
+        if provider and int(provider.get("enabled") or 0) == 1 and str(provider.get("status") or "").lower() in {"ready", "local_ready"}:
+            provider["route_key"] = route.get("route_key")
+            return provider
+
+    return {
+        "status": "failed",
+        "reason": "no_enabled_provider_available",
+        "provider_key": "none",
+        "route_key": route.get("route_key"),
+    }
+
+
+def _run_local_placeholder_reasoner(prompt: str, context: str = "", route_key: str = "general_reasoning") -> dict[str, Any]:
+    prompt_text = str(prompt or "").strip()
+    context_text = str(context or "").strip()
+
+    word_count = len(prompt_text.split())
+    context_word_count = len(context_text.split())
+
+    if not prompt_text:
+        recommendation = "No prompt supplied. Provide a clear commander question or task."
+    elif "risk" in prompt_text.lower() or "approve" in prompt_text.lower():
+        recommendation = "Review risk, classify the action, require approval for external or sensitive changes, then execute only after audit logging."
+    elif "mission" in prompt_text.lower():
+        recommendation = "Convert the request into an active mission with priority, next action, owner, and AAR requirement."
+    elif "brief" in prompt_text.lower():
+        recommendation = "Generate a concise commander brief using current missions, risks, blockers, and next recommended action."
+    else:
+        recommendation = "Break the request into mission intent, current state, options, risks, and next action."
+
+    return {
+        "status": "ok",
+        "provider": "local_placeholder",
+        "route_key": route_key,
+        "summary": f"Local placeholder processed {word_count} prompt words and {context_word_count} context words.",
+        "recommendation": recommendation,
+        "note": "No external model was called. This is a safe local placeholder response.",
+    }
+
+
+def create_reasoning_request(payload: dict[str, Any]) -> dict[str, Any]:
+    import json
+
+    ensure_model_provider_tables()
+
+    route_key = payload.get("route_key") or "general_reasoning"
+    prompt = payload.get("prompt") or ""
+    context = payload.get("context") or ""
+
+    provider = _select_model_provider_for_route(route_key)
+
+    if provider.get("status") == "failed":
+        result = {
+            "status": "failed",
+            "reason": provider.get("reason"),
+        }
+        provider_used = provider.get("provider_key") or "none"
+        status = "failed"
+    elif provider.get("provider_key") == "local_placeholder":
+        result = _run_local_placeholder_reasoner(prompt, context, route_key=route_key)
+        provider_used = "local_placeholder"
+        status = "completed"
+    else:
+        firewall = create_external_action_request(
+            {
+                "connector_key": "model_providers",
+                "action_type": "external_model_runtime",
+                "title": f"Model reasoning request: {route_key}",
+                "requested_by": payload.get("requested_by") or "model_router",
+                "payload": {
+                    "route_key": route_key,
+                    "provider_key": provider.get("provider_key"),
+                    "prompt_preview": str(prompt)[:500],
+                },
+            }
+        )
+
+        result = {
+            "status": "pending_firewall_approval",
+            "provider": provider.get("provider_key"),
+            "firewall_action_id": firewall.get("id"),
+            "note": "External model execution requires approval.",
+        }
+        provider_used = provider.get("provider_key")
+        status = "pending_firewall_approval"
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_reasoning_requests
+            (route_key, prompt, context, status, provider_used, result, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                route_key,
+                prompt,
+                context,
+                status,
+                provider_used,
+                json.dumps(result),
+                now,
+            ),
+        )
+        request_id = cursor.lastrowid
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("requested_by") or "model_router",
+        action="reasoning_request_created",
+        target_type="reasoning_request",
+        target_id=str(request_id),
+        detail=f"Reasoning request routed to {provider_used} with status={status}.",
+    )
+
+    response = get_reasoning_request(request_id) or {"id": request_id, "status": status}
+    response["parsed_result"] = result
+    return response
+
+
+def get_reasoning_request(request_id: int) -> dict[str, Any] | None:
+    ensure_model_provider_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_reasoning_requests WHERE id = ?",
+            (request_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_reasoning_requests(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_model_provider_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_reasoning_requests ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_model_provider_state() -> dict[str, Any]:
+    providers = list_model_providers()
+    routes = list_model_routes()
+    requests = list_reasoning_requests(100)
+
+    enabled = [provider for provider in providers if int(provider.get("enabled") or 0) == 1]
+    ready = [provider for provider in providers if str(provider.get("status") or "").lower() in {"ready", "local_ready"}]
+    completed = [request for request in requests if str(request.get("status") or "").lower() == "completed"]
+    pending = [request for request in requests if str(request.get("status") or "").lower() == "pending_firewall_approval"]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "providers": len(providers),
+            "enabled": len(enabled),
+            "ready": len(ready),
+            "routes": len(routes),
+            "requests": len(requests),
+            "completed": len(completed),
+            "pending_firewall": len(pending),
+        },
+        "providers": providers,
+        "routes": routes,
+        "requests": requests,
+        "recommended_action": "Keep local placeholder active until external model providers are configured and protected by firewall.",
     }

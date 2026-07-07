@@ -996,6 +996,55 @@ def execute_external_action_placeholder_from_ui(action_id: int):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/tool-adapter/{adapter_key}/enable")
+def enable_tool_adapter_from_ui(adapter_key: str):
+    mc_service.set_tool_adapter_enabled(adapter_key, True, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/tool-adapter/{adapter_key}/disable")
+def disable_tool_adapter_from_ui(adapter_key: str):
+    mc_service.set_tool_adapter_enabled(adapter_key, False, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/tool-adapter/{adapter_key}/actions/{action_name}")
+async def execute_tool_adapter_action_from_ui(adapter_key: str, action_name: str, request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    payload = {
+        "path": _form_value(form, "path", "."),
+        "actor": "commander_ui",
+    }
+
+    mc_service.execute_tool_adapter_action(
+        adapter_key=adapter_key,
+        action_name=action_name,
+        payload=payload,
+        actor="commander_ui",
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/model-provider/reasoning")
+async def create_reasoning_request_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mc_service.create_reasoning_request(
+        {
+            "route_key": _form_value(form, "route_key", "general_reasoning"),
+            "prompt": _form_value(form, "prompt", ""),
+            "context": _form_value(form, "context", ""),
+            "requested_by": "commander_ui",
+        }
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -1065,6 +1114,10 @@ def mission_control_v1(request: Request) -> str:
     agent_runtime_state = mc_service.get_agent_runtime_state()
 
     firewall_state = mc_service.get_external_action_firewall_state()
+
+    tool_adapter_state = mc_service.get_tool_adapter_state()
+
+    model_provider_state = mc_service.get_model_provider_state()
 
     return f"""
     <!doctype html>
@@ -1222,7 +1275,11 @@ def mission_control_v1(request: Request) -> str:
 
         {mc_views.render_snapshot_panel(snapshot_state)}
 
-                                {mc_views.render_external_action_firewall_panel(firewall_state)}
+                                                {mc_views.render_model_provider_panel(model_provider_state)}
+
+        {mc_views.render_tool_adapter_panel(tool_adapter_state)}
+
+        {mc_views.render_external_action_firewall_panel(firewall_state)}
 
         {mc_views.render_agent_runtime_panel(agent_runtime_state)}
 

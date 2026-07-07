@@ -654,3 +654,245 @@ def render_external_action_firewall_panel(firewall_state: dict[str, Any]) -> str
           </p>
         </section>
     """
+
+
+def render_tool_adapter_panel(adapter_state: dict[str, Any]) -> str:
+    counts = adapter_state.get("counts", {})
+    adapters = adapter_state.get("adapters", [])
+    runs = adapter_state.get("runs", [])
+
+    adapter_rows = ""
+    for adapter in adapters:
+        key = cell(adapter.get("adapter_key", ""))
+        name = cell(adapter.get("name", ""))
+        adapter_type = cell(adapter.get("adapter_type", ""))
+        connector_key = cell(adapter.get("connector_key", ""))
+        status = cell(adapter.get("status", ""))
+        enabled = cell(adapter.get("enabled", 0))
+        allowed_actions = cell(adapter.get("allowed_actions", ""))
+
+        adapter_rows += f"""
+          <tr>
+            <td>{key}</td>
+            <td>{name}</td>
+            <td>{adapter_type}</td>
+            <td>{connector_key}</td>
+            <td>{status}</td>
+            <td>{enabled}</td>
+            <td>{allowed_actions}</td>
+            <td>
+              <form method="post" action="/mission-control/tool-adapter/{key}/enable">
+                <button type="submit">Enable</button>
+              </form>
+              <form method="post" action="/mission-control/tool-adapter/{key}/disable">
+                <button type="submit">Disable</button>
+              </form>
+            </td>
+          </tr>
+        """
+
+    if not adapter_rows:
+        adapter_rows = "<tr><td colspan='8'>No tool adapters registered.</td></tr>"
+
+    run_rows = ""
+    for run in runs[:10]:
+        run_rows += f"""
+          <tr>
+            <td>{cell(run.get("adapter_key", ""))}</td>
+            <td>{cell(run.get("action_name", ""))}</td>
+            <td>{cell(run.get("status", ""))}</td>
+            <td>{cell(run.get("created_at", ""))}</td>
+          </tr>
+        """
+
+    if not run_rows:
+        run_rows = "<tr><td colspan='4'>No adapter runs recorded.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Tool Adapter Interface</h2>
+          <p class="muted">{cell(adapter_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Adapters</h2><div class="metric">{cell(counts.get("total", 0))}</div></div>
+            <div class="card"><h2>Enabled</h2><div class="metric">{cell(counts.get("enabled", 0))}</div></div>
+            <div class="card"><h2>Ready</h2><div class="metric">{cell(counts.get("ready", 0))}</div></div>
+            <div class="card"><h2>Runs</h2><div class="metric">{cell(counts.get("runs", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/tool-adapter/local_files/actions/list_project_files">
+            <button type="submit">List Project Files</button>
+          </form>
+
+          <form method="post" action="/mission-control/tool-adapter/local_files/actions/summarize_project_file">
+            <input name="path" value="backend/main.py">
+            <button type="submit">Summarize File</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Connector</th>
+                  <th>Status</th>
+                  <th>Enabled</th>
+                  <th>Allowed Actions</th>
+                  <th>Controls</th>
+                </tr>
+              </thead>
+              <tbody>{adapter_rows}</tbody>
+            </table>
+          </div>
+
+          <h3>Recent Adapter Runs</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Adapter</th>
+                  <th>Action</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>{run_rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/tool-adapters">Tool Adapters JSON</a> |
+            <a href="/api/mission-control/tool-adapters/runs">Adapter Runs</a>
+          </p>
+        </section>
+    """
+
+
+def render_model_provider_panel(model_state: dict[str, Any]) -> str:
+    counts = model_state.get("counts", {})
+    providers = model_state.get("providers", [])
+    routes = model_state.get("routes", [])
+    requests = model_state.get("requests", [])
+
+    provider_rows = ""
+    for provider in providers:
+        provider_rows += f"""
+          <tr>
+            <td>{cell(provider.get("provider_key", ""))}</td>
+            <td>{cell(provider.get("name", ""))}</td>
+            <td>{cell(provider.get("provider_type", ""))}</td>
+            <td>{cell(provider.get("status", ""))}</td>
+            <td>{cell(provider.get("enabled", 0))}</td>
+            <td>{cell(provider.get("priority", ""))}</td>
+          </tr>
+        """
+
+    if not provider_rows:
+        provider_rows = "<tr><td colspan='6'>No model providers registered.</td></tr>"
+
+    route_rows = ""
+    for route in routes:
+        route_rows += f"""
+          <tr>
+            <td>{cell(route.get("route_key", ""))}</td>
+            <td>{cell(route.get("purpose", ""))}</td>
+            <td>{cell(route.get("primary_provider", ""))}</td>
+            <td>{cell(route.get("fallback_provider", ""))}</td>
+            <td>{cell(route.get("enabled", 0))}</td>
+          </tr>
+        """
+
+    if not route_rows:
+        route_rows = "<tr><td colspan='5'>No model routes registered.</td></tr>"
+
+    request_rows = ""
+    for request in requests[:10]:
+        request_rows += f"""
+          <tr>
+            <td>{cell(request.get("id", ""))}</td>
+            <td>{cell(request.get("route_key", ""))}</td>
+            <td>{cell(request.get("status", ""))}</td>
+            <td>{cell(request.get("provider_used", ""))}</td>
+            <td>{cell(request.get("created_at", ""))}</td>
+          </tr>
+        """
+
+    if not request_rows:
+        request_rows = "<tr><td colspan='5'>No reasoning requests recorded.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Model Provider Router</h2>
+          <p class="muted">{cell(model_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Providers</h2><div class="metric">{cell(counts.get("providers", 0))}</div></div>
+            <div class="card"><h2>Enabled</h2><div class="metric">{cell(counts.get("enabled", 0))}</div></div>
+            <div class="card"><h2>Routes</h2><div class="metric">{cell(counts.get("routes", 0))}</div></div>
+            <div class="card"><h2>Requests</h2><div class="metric">{cell(counts.get("requests", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/model-provider/reasoning">
+            <input name="route_key" value="general_reasoning">
+            <textarea name="prompt" placeholder="Reasoning prompt"></textarea>
+            <textarea name="context" placeholder="Optional context"></textarea>
+            <button type="submit">Run Local Reasoning Placeholder</button>
+          </form>
+
+          <h3>Providers</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Enabled</th>
+                  <th>Priority</th>
+                </tr>
+              </thead>
+              <tbody>{provider_rows}</tbody>
+            </table>
+          </div>
+
+          <h3>Routes</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Purpose</th>
+                  <th>Primary</th>
+                  <th>Fallback</th>
+                  <th>Enabled</th>
+                </tr>
+              </thead>
+              <tbody>{route_rows}</tbody>
+            </table>
+          </div>
+
+          <h3>Recent Reasoning Requests</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Route</th>
+                  <th>Status</th>
+                  <th>Provider</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>{request_rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/model-providers">Model Router JSON</a> |
+            <a href="/api/mission-control/model-providers/reasoning">Reasoning Requests</a>
+          </p>
+        </section>
+    """
