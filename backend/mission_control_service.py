@@ -856,3 +856,162 @@ def list_agent_tasks_filtered(status: str | None = None, risk_level: str | None 
         tasks = [task for task in tasks if str(task.get("risk_level") or "").lower() == risk_level.lower()]
 
     return tasks[:limit]
+
+
+def get_route_inventory(app: Any) -> list[dict[str, Any]]:
+    routes: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    # Primary source: FastAPI/OpenAPI path registry.
+    try:
+        schema = app.openapi()
+        paths = schema.get("paths", {}) if isinstance(schema, dict) else {}
+
+        for route_path, operations in paths.items():
+            if not isinstance(operations, dict):
+                continue
+
+            methods = sorted(
+                method.upper()
+                for method in operations.keys()
+                if method.lower() in {"get", "post", "put", "patch", "delete", "head", "options"}
+            )
+
+            normalized_path = route_path.rstrip("/") if route_path != "/" else route_path
+            key = (normalized_path, ",".join(methods))
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            routes.append(
+                {
+                    "path": normalized_path,
+                    "methods": methods,
+                    "name": "",
+                    "is_api": normalized_path.startswith("/api/"),
+                    "is_mission_control": "mission-control" in normalized_path,
+                }
+            )
+    except Exception:
+        pass
+
+    # Fallback source: raw Starlette/FastAPI routes.
+    app_routes = list(getattr(app, "routes", []) or [])
+    router = getattr(app, "router", None)
+    router_routes = list(getattr(router, "routes", []) or []) if router else []
+
+    for route in app_routes + router_routes:
+        route_path = (
+            getattr(route, "path", "")
+            or getattr(route, "path_format", "")
+            or ""
+        )
+        methods = sorted(list(getattr(route, "methods", []) or []))
+        name = getattr(route, "name", "") or ""
+
+        if not route_path:
+            continue
+
+        normalized_path = route_path.rstrip("/") if route_path != "/" else route_path
+        key = (normalized_path, ",".join(methods))
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        routes.append(
+            {
+                "path": normalized_path,
+                "methods": methods,
+                "name": name,
+                "is_api": normalized_path.startswith("/api/"),
+                "is_mission_control": "mission-control" in normalized_path,
+            }
+        )
+
+    return sorted(routes, key=lambda item: item["path"])
+
+
+def get_mission_control_contract(app: Any) -> dict[str, Any]:
+    routes = get_route_inventory(app)
+    mission_routes = [route for route in routes if route["is_mission_control"]]
+    api_routes = [route for route in mission_routes if route["is_api"]]
+    ui_routes = [route for route in mission_routes if not route["is_api"]]
+
+    required_paths = [
+        "/mission-control",
+        "/mission-control/v1",
+        "/mission-control/ui",
+        "/api/mission-control/state",
+        "/api/mission-control/readiness",
+        "/api/mission-control/operator-queue",
+        "/api/mission-control/agent/state",
+        "/api/mission-control/agent/tasks",
+        "/api/mission-control/agent/risk-dashboard",
+    ]
+
+    present = {route["path"] for route in routes}
+    missing = [path for path in required_paths if path not in present]
+
+    return {
+        "status": "ok" if not missing else "degraded",
+        "required_paths": required_paths,
+        "missing_paths": missing,
+        "counts": {
+            "total_routes": len(routes),
+            "mission_control_routes": len(mission_routes),
+            "mission_control_api_routes": len(api_routes),
+            "mission_control_ui_routes": len(ui_routes),
+        },
+        "mission_control_routes": mission_routes,
+    }
+
+
+def get_system_health(app: Any) -> dict[str, Any]:
+    contract = get_mission_control_contract(app)
+    state = get_mission_control_state()
+    agent_state = get_agent_execution_state()
+    risk_dashboard = get_agent_risk_dashboard()
+
+    checks = {
+        "route_contract": contract["status"] == "ok",
+        "mission_control_state": state.get("status") == "ok",
+        "agent_execution_state": agent_state.get("status") == "ok",
+        "risk_dashboard": risk_dashboard.get("status") == "ok",
+        "storage": _storage_health_check(),
+    }
+
+    failed = [name for name, passed in checks.items() if not passed]
+
+    if failed:
+        posture = "degraded"
+    elif risk_dashboard.get("posture") in {"elevated", "approval_required"}:
+        posture = "attention_required"
+    else:
+        posture = "healthy"
+
+    return {
+        "status": "ok" if not failed else "degraded",
+        "posture": posture,
+        "checks": checks,
+        "failed_checks": failed,
+        "contract": contract,
+        "mission_control_readiness": state.get("readiness", {}),
+        "agent_counts": agent_state.get("counts", {}),
+        "risk": {
+            "posture": risk_dashboard.get("posture"),
+            "by_risk": risk_dashboard.get("by_risk", {}),
+            "recommended_action": risk_dashboard.get("recommended_action"),
+        },
+    }
+
+
+def _storage_health_check() -> bool:
+    try:
+        with store.connect() as conn:
+            store.ensure_tables(conn)
+            conn.execute("SELECT 1").fetchone()
+        return True
+    except Exception:
+        return False

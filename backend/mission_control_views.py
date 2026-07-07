@@ -220,3 +220,31 @@ def render_agent_risk_dashboard(dashboard: dict[str, Any]) -> str:
           <p><strong>Recommended Action:</strong> {recommendation}</p>
         </section>
     """
+
+
+def render_system_health_panel(health: dict[str, Any]) -> str:
+    checks = health.get("checks", {})
+    contract = health.get("contract", {})
+    counts = contract.get("counts", {})
+    risk = health.get("risk", {})
+
+    check_lines = ""
+    for name, passed in checks.items():
+        check_lines += f"<p>{cell(name)}: {'PASS' if passed else 'FAIL'}</p>"
+
+    return f"""
+        <section class="card">
+          <h2>System Health</h2>
+          <p class="muted">Posture: {cell(health.get("posture", "unknown"))}</p>
+          <section class="grid">
+            <div class="card"><h2>Total Routes</h2><div class="metric">{cell(counts.get("total_routes", 0))}</div></div>
+            <div class="card"><h2>MC Routes</h2><div class="metric">{cell(counts.get("mission_control_routes", 0))}</div></div>
+            <div class="card"><h2>MC APIs</h2><div class="metric">{cell(counts.get("mission_control_api_routes", 0))}</div></div>
+            <div class="card"><h2>MC UI</h2><div class="metric">{cell(counts.get("mission_control_ui_routes", 0))}</div></div>
+          </section>
+          <p><strong>Risk Posture:</strong> {cell(risk.get("posture", "unknown"))}</p>
+          <p><strong>Recommended Action:</strong> {cell(risk.get("recommended_action", "Review system state."))}</p>
+          <div>{check_lines}</div>
+          <p><a href="/api/mission-control/health">Health JSON</a> | <a href="/api/mission-control/contract">API Contract</a> | <a href="/api/mission-control/routes">Route Inventory</a></p>
+        </section>
+    """

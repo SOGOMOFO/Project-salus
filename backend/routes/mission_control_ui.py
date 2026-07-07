@@ -850,7 +850,7 @@ def promote_agent_task_to_mission_from_ui(task_id: int):
 
 
 @router.get("/mission-control/v1", response_class=HTMLResponse)
-def mission_control_v1() -> str:
+def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
         _ensure_commander_briefs_table(conn)
         _ensure_daily_workflow_table(conn)
@@ -904,6 +904,8 @@ def mission_control_v1() -> str:
     agent_tasks, agent_audit_log = _agent_panel_context()
 
     agent_risk_dashboard = mc_service.get_agent_risk_dashboard()
+
+    system_health = mc_service.get_system_health(request.app)
 
     return f"""
     <!doctype html>
@@ -1057,6 +1059,8 @@ def mission_control_v1() -> str:
       </header>
 
       <main>
+        {mc_views.render_system_health_panel(system_health)}
+
         {mc_views.render_agent_risk_dashboard(agent_risk_dashboard)}
         {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}
 
