@@ -357,3 +357,336 @@ def create_aar_from_payload(payload: dict[str, Any]) -> None:
             },
         )
         conn.commit()
+
+
+def ensure_agent_execution_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_agent_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT NOT NULL,
+                task_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT NOT NULL,
+                risk_level TEXT NOT NULL,
+                requires_approval INTEGER NOT NULL,
+                approved INTEGER NOT NULL,
+                result TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor TEXT NOT NULL,
+                action TEXT NOT NULL,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_permission_gates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gate_name TEXT NOT NULL UNIQUE,
+                risk_level TEXT NOT NULL,
+                allowed_without_approval INTEGER NOT NULL,
+                description TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        now = datetime.now(timezone.utc).isoformat()
+        gates = [
+            ("low_risk_agent_task", "low", 1, "Low-risk read, summarize, organize, and draft tasks may run without approval."),
+            ("medium_risk_agent_task", "medium", 0, "Medium-risk tasks require commander approval before execution."),
+            ("high_risk_agent_task", "high", 0, "High-risk tasks require explicit approval and audit logging."),
+            ("critical_risk_agent_task", "critical", 0, "Critical actions are blocked until explicitly approved."),
+        ]
+
+        for gate_name, risk_level, allowed, description in gates:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_permission_gates
+                (gate_name, risk_level, allowed_without_approval, description, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (gate_name, risk_level, allowed, description, now),
+            )
+
+        conn.commit()
+
+
+def audit_log(actor: str, action: str, target_type: str, target_id: str, detail: str) -> None:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO mission_control_audit_log
+            (actor, action, target_type, target_id, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                actor or "system",
+                action or "unknown_action",
+                target_type or "unknown_target",
+                str(target_id or "unknown"),
+                detail or "",
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+
+
+def _agent_task_requires_approval(risk_level: str, explicit_requires_approval: bool = False) -> bool:
+    risk = str(risk_level or "medium").lower()
+    if explicit_requires_approval:
+        return True
+    return risk in {"medium", "high", "critical"}
+
+
+def create_agent_task_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    import json
+
+    ensure_agent_execution_tables()
+
+    risk_level = str(payload.get("risk_level") or "medium").lower()
+    requires_approval = _agent_task_requires_approval(
+        risk_level,
+        bool(payload.get("requires_approval", False)),
+    )
+
+    status = "pending_approval" if requires_approval else "queued"
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_agent_tasks
+            (source, task_type, title, payload, status, risk_level, requires_approval, approved, result, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.get("source") or "external_agent",
+                payload.get("task_type") or "general",
+                payload.get("title") or "Untitled Agent Task",
+                json.dumps(payload.get("payload") or payload),
+                status,
+                risk_level,
+                1 if requires_approval else 0,
+                0 if requires_approval else 1,
+                None,
+                now,
+                now,
+            ),
+        )
+        task_id = cursor.lastrowid
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("source") or "external_agent",
+        action="agent_task_created",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail=f"Created agent task with risk={risk_level} status={status}",
+    )
+
+    return get_agent_task(task_id) or {"id": task_id, "status": status}
+
+
+def get_agent_task(task_id: int) -> dict[str, Any] | None:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_agent_tasks WHERE id = ?",
+            (task_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_agent_tasks(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mission_control_agent_tasks ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def approve_agent_task(task_id: int, actor: str = "commander") -> bool:
+    ensure_agent_execution_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_agent_tasks WHERE id = ?",
+            (task_id,),
+        ).fetchone()
+
+        if row is None:
+            return False
+
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET approved = 1, status = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("queued", now, task_id),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="agent_task_approved",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail="Commander approved agent task for execution.",
+    )
+
+    return True
+
+
+def reject_agent_task(task_id: int, actor: str = "commander", reason: str = "") -> bool:
+    ensure_agent_execution_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_agent_tasks WHERE id = ?",
+            (task_id,),
+        ).fetchone()
+
+        if row is None:
+            return False
+
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET approved = 0, status = ?, result = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("rejected", reason or "Rejected by commander.", now, task_id),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="agent_task_rejected",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail=reason or "Commander rejected agent task.",
+    )
+
+    return True
+
+
+def complete_agent_task(task_id: int, result: dict[str, Any] | None = None, actor: str = "agent_runtime") -> dict[str, Any]:
+    import json
+
+    ensure_agent_execution_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    task = get_agent_task(task_id)
+    if not task:
+        return {"status": "not_found", "task_id": task_id}
+
+    if int(task.get("requires_approval") or 0) == 1 and int(task.get("approved") or 0) != 1:
+        audit_log(
+            actor=actor,
+            action="agent_task_execution_blocked",
+            target_type="agent_task",
+            target_id=str(task_id),
+            detail="Execution blocked because approval is required.",
+        )
+        return {"status": "blocked", "reason": "approval_required", "task_id": task_id}
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET status = ?, result = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("completed", json.dumps(result or {"message": "completed"}), now, task_id),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="agent_task_completed",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail="Agent task marked completed.",
+    )
+
+    return {"status": "completed", "task_id": task_id}
+
+
+def list_audit_log(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mission_control_audit_log ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def list_permission_gates() -> list[dict[str, Any]]:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mission_control_permission_gates ORDER BY id ASC",
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_agent_execution_state() -> dict[str, Any]:
+    tasks = list_agent_tasks(100)
+    audit = list_audit_log(50)
+    gates = list_permission_gates()
+
+    pending = [task for task in tasks if task.get("status") == "pending_approval"]
+    queued = [task for task in tasks if task.get("status") == "queued"]
+    completed = [task for task in tasks if task.get("status") == "completed"]
+    blocked = [task for task in tasks if task.get("status") == "blocked"]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "total_tasks": len(tasks),
+            "pending_approval": len(pending),
+            "queued": len(queued),
+            "completed": len(completed),
+            "blocked": len(blocked),
+            "audit_events": len(audit),
+            "permission_gates": len(gates),
+        },
+        "latest_task": tasks[0] if tasks else None,
+        "tasks": tasks,
+        "audit_log": audit,
+        "permission_gates": gates,
+    }
