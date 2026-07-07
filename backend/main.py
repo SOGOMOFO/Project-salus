@@ -3771,3 +3771,12 @@ def _phase3_connector_activation_request(
         requested_controls=requested_controls,
     )
 
+
+
+
+# Phase 3: Daily Driver Health fallback route
+@app.get("/api/mission-control/daily-driver-health")
+def _phase3_daily_driver_health():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_daily_driver_health_state()
+

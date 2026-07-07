@@ -5021,3 +5021,201 @@ def get_connector_activation_gate_state():
         "evaluations": evaluations,
         "recommended_action": "Keep shell connectors pending approval until live read-only integrations are explicitly authorized.",
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Daily Driver Startup + Health Check
+# -----------------------------------------------------------------------------
+
+def _daily_driver_component(name, status, detail="", recommended_action=""):
+    return {
+        "name": name,
+        "status": status,
+        "detail": detail,
+        "recommended_action": recommended_action,
+    }
+
+
+def get_daily_driver_health_state():
+    components = []
+
+    try:
+        with store.connect() as conn:
+            conn.execute("SELECT 1").fetchone()
+        components.append(
+            _daily_driver_component(
+                "database",
+                "ok",
+                "SQLite store is reachable.",
+                "Continue.",
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "database",
+                "fail",
+                f"Database check failed: {exc}",
+                "Repair local database/store before daily use.",
+            )
+        )
+
+    components.append(
+        _daily_driver_component(
+            "mission_control",
+            "ok",
+            "Mission Control service layer is available.",
+            "Open /mission-control/v1.",
+        )
+    )
+
+    try:
+        local_state = get_local_file_intelligence_state()
+        indexed = local_state.get("counts", {}).get("indexed_files", 0)
+        components.append(
+            _daily_driver_component(
+                "local_file_intelligence",
+                "ok",
+                f"Local file intelligence available. Indexed file sample: {indexed}.",
+                "Run reindex after major code or document changes.",
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "local_file_intelligence",
+                "warning",
+                f"Local file intelligence unavailable: {exc}",
+                "Run local file intelligence repair or reindex.",
+            )
+        )
+
+    try:
+        policy = get_connector_permission_policy_state()
+        write_enabled = policy.get("counts", {}).get("write_enabled", 0)
+        components.append(
+            _daily_driver_component(
+                "connector_permission_policy",
+                "ok" if write_enabled == 0 else "warning",
+                f"Connector profiles loaded. Write-enabled connectors: {write_enabled}.",
+                "Keep connectors read-only until explicitly approved.",
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "connector_permission_policy",
+                "warning",
+                f"Connector permission policy unavailable: {exc}",
+                "Complete connector permission profile block.",
+            )
+        )
+
+    try:
+        gmail = get_gmail_read_only_connector_state()
+        components.append(
+            _daily_driver_component(
+                "gmail_read_only_shell",
+                "ok",
+                f"Gmail shell mode: {gmail.get('mode')}; live access: {gmail.get('live_access_enabled')}.",
+                "Keep shell-only until explicit activation.",
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "gmail_read_only_shell",
+                "warning",
+                f"Gmail shell unavailable: {exc}",
+                "Complete Gmail read-only connector shell block.",
+            )
+        )
+
+    try:
+        calendar = get_calendar_read_only_connector_state()
+        components.append(
+            _daily_driver_component(
+                "calendar_read_only_shell",
+                "ok",
+                f"Calendar shell mode: {calendar.get('mode')}; live access: {calendar.get('live_access_enabled')}.",
+                "Keep shell-only until explicit activation.",
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "calendar_read_only_shell",
+                "warning",
+                f"Calendar shell unavailable: {exc}",
+                "Complete Calendar read-only connector shell block.",
+            )
+        )
+
+    try:
+        readiness = get_connector_readiness_registry_state()
+        components.append(
+            _daily_driver_component(
+                "connector_readiness_registry",
+                readiness.get("status", "ok"),
+                f"Connector readiness count: {readiness.get('counts', {}).get('connectors', 0)}.",
+                readiness.get("recommended_action", "Continue."),
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "connector_readiness_registry",
+                "warning",
+                f"Connector readiness registry unavailable: {exc}",
+                "Complete connector readiness registry block.",
+            )
+        )
+
+    try:
+        gate = get_connector_activation_gate_state()
+        components.append(
+            _daily_driver_component(
+                "connector_activation_gate",
+                gate.get("status", "ok"),
+                f"Activation gate evaluated connectors: {gate.get('counts', {}).get('evaluated', 0)}.",
+                gate.get("recommended_action", "Continue."),
+            )
+        )
+    except Exception as exc:
+        components.append(
+            _daily_driver_component(
+                "connector_activation_gate",
+                "warning",
+                f"Connector activation gate unavailable: {exc}",
+                "Complete connector activation gate block.",
+            )
+        )
+
+    fail_count = len([item for item in components if item.get("status") == "fail"])
+    warning_count = len([item for item in components if item.get("status") == "warning"])
+    ok_count = len([item for item in components if item.get("status") == "ok"])
+
+    if fail_count:
+        overall = "not_ready"
+        recommended_action = "Fix failed components before using Project Salus as daily driver."
+    elif warning_count:
+        overall = "usable_with_warnings"
+        recommended_action = "Usable for daily local operations. Avoid live connector activation until warnings are resolved."
+    else:
+        overall = "ready"
+        recommended_action = "Project Salus is ready for daily local use. Start Daily Commander Brief."
+
+    return {
+        "status": overall,
+        "daily_use_ready": fail_count == 0,
+        "counts": {
+            "ok": ok_count,
+            "warnings": warning_count,
+            "failures": fail_count,
+            "components": len(components),
+        },
+        "components": components,
+        "recommended_action": recommended_action,
+        "next_daily_action": "Open Mission Control and run Start My Day workflow.",
+    }
