@@ -3816,3 +3816,21 @@ def _phase3_start_my_day():
     from backend import mission_control_service as mc_service
     return mc_service.get_start_my_day_workflow_state()
 
+
+
+
+# Phase 3: Daily Driver Log fallback routes
+@app.get("/api/mission-control/daily-driver-logs")
+def _phase3_daily_driver_logs(limit: int = 20):
+    from backend import mission_control_service as mc_service
+    return mc_service.get_daily_driver_log_state(limit=limit)
+
+
+@app.post("/api/mission-control/daily-driver-logs/record")
+def _phase3_record_daily_driver_log(workflow: str, actor: str = "commander"):
+    from backend import mission_control_service as mc_service
+    return mc_service.record_daily_driver_log_entry(
+        workflow=workflow,
+        actor=actor,
+    )
+

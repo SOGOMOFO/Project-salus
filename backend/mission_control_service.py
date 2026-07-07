@@ -5447,3 +5447,117 @@ def get_start_my_day_workflow_state():
         },
         "recommended_next_step": "Open Mission Control, review top actions, then execute the first mission block.",
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Local Daily Log Persistence
+# -----------------------------------------------------------------------------
+
+def _daily_driver_log_path():
+    from pathlib import Path
+
+    data_dir = Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / "daily_driver_logs.jsonl"
+
+
+def _daily_driver_timestamp():
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def record_daily_driver_log_entry(workflow, payload=None, actor="commander"):
+    import json
+
+    if workflow not in {"health", "start_my_day", "end_my_day"}:
+        return {
+            "status": "error",
+            "reason": "Unsupported daily driver workflow.",
+            "allowed_workflows": ["health", "start_my_day", "end_my_day"],
+        }
+
+    if payload is None:
+        if workflow == "health":
+            payload = get_daily_driver_health_state()
+        elif workflow == "start_my_day":
+            payload = get_start_my_day_workflow_state()
+        elif workflow == "end_my_day":
+            payload = get_end_my_day_workflow_state()
+
+    entry = {
+        "status": "ok",
+        "log_type": "daily_driver",
+        "workflow": workflow,
+        "actor": actor,
+        "created_at": _daily_driver_timestamp(),
+        "payload": payload or {},
+    }
+
+    path = _daily_driver_log_path()
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, sort_keys=True) + "\n")
+
+    try:
+        audit_log(
+            actor=actor,
+            action="daily_driver_log_recorded",
+            target_type="daily_driver_log",
+            target_id=workflow,
+            detail=f"Daily driver log recorded for {workflow}.",
+        )
+    except Exception:
+        pass
+
+    return entry
+
+
+def list_daily_driver_log_entries(limit=20):
+    import json
+
+    path = _daily_driver_log_path()
+    if not path.exists():
+        return []
+
+    entries = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    return list(reversed(entries))[:limit]
+
+
+def get_daily_driver_log_state(limit=20):
+    entries = list_daily_driver_log_entries(limit=limit)
+
+    workflow_counts = {
+        "health": 0,
+        "start_my_day": 0,
+        "end_my_day": 0,
+    }
+
+    for entry in entries:
+        workflow = entry.get("workflow")
+        if workflow in workflow_counts:
+            workflow_counts[workflow] += 1
+
+    return {
+        "status": "ok",
+        "log_type": "daily_driver",
+        "path": str(_daily_driver_log_path()),
+        "counts": {
+            "returned": len(entries),
+            "health": workflow_counts["health"],
+            "start_my_day": workflow_counts["start_my_day"],
+            "end_my_day": workflow_counts["end_my_day"],
+        },
+        "entries": entries,
+        "recommended_action": "Review recent daily logs before planning the next mission block.",
+    }
