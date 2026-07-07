@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from urllib.parse import parse_qs
 
 from backend import mission_control_store as mc_store
+from backend import mission_control_service as mc_service
 from backend import mission_control_views as mc_views
 
 
@@ -133,34 +134,7 @@ def _build_commander_brief(
     sitreps: list[dict[str, Any]],
     aars: list[dict[str, Any]],
 ) -> str:
-    active = [m for m in missions if str(m.get("status", "")).lower() == "active"]
-    blocked = [m for m in missions if str(m.get("status", "")).lower() == "blocked"]
-    latest_mission = missions[0] if missions else {}
-    latest_sitrep = sitreps[0] if sitreps else {}
-    latest_aar = aars[0] if aars else {}
-
-    lines = [
-        "PROJECT SALUS DAILY COMMANDER BRIEF",
-        "",
-        f"Active missions: {len(active)}",
-        f"Blocked missions: {len(blocked)}",
-        "",
-        f"Primary mission: {_value(latest_mission, 'title', 'name', default='No active mission')}",
-        f"Mission status: {_value(latest_mission, 'status', default='unknown')}",
-        f"Next action: {_value(latest_mission, 'next_action', 'description', default='Define next action.')}",
-        "",
-        f"Latest SITREP: {_value(latest_sitrep, 'summary', 'content', 'status', default='No SITREP recorded.')}",
-        f"Latest AAR lesson: {_value(latest_aar, 'lesson_learned', 'lesson', 'summary', default='No AAR lesson recorded.')}",
-        "",
-        "Next Recommended Action: Execute the highest-priority active mission and clear blockers.",
-        "",
-        "Commander guidance:",
-        "1. Clear blocked missions.",
-        "2. Execute the highest-priority active mission.",
-        "3. Capture SITREP and AAR before shutdown.",
-    ]
-
-    return "\n".join(str(line) if line is not None else "" for line in lines)
+    return mc_service.build_commander_brief(missions, sitreps, aars)
 
 
 def _mission_queue(rows: list[dict[str, Any]]) -> str:
@@ -775,133 +749,38 @@ async def create_operator_item_from_ui(request: Request):
     raw = (await request.body()).decode()
     form = parse_qs(raw)
 
-    with _connect() as conn:
-        _ensure_operator_queue_table(conn)
-        conn.execute(
-            """
-            INSERT INTO mission_control_operator_queue
-            (title, description, queue_type, status, priority, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                _form_value(form, "title", "Untitled Operator Item"),
-                _form_value(form, "description", ""),
-                _form_value(form, "queue_type", "task"),
-                _form_value(form, "status", "open"),
-                _form_value(form, "priority", "medium"),
-                datetime.now(timezone.utc).isoformat(),
-            ),
-        )
-        conn.commit()
+    mc_service.create_operator_item(
+        title=_form_value(form, "title", "Untitled Operator Item"),
+        description=_form_value(form, "description", ""),
+        queue_type=_form_value(form, "queue_type", "task"),
+        status=_form_value(form, "status", "open"),
+        priority=_form_value(form, "priority", "medium"),
+    )
 
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
 @router.post("/mission-control/operator-item/{item_id}/status/{status}")
 def update_operator_item_status_from_ui(item_id: int, status: str):
-    allowed = {"open", "in_progress", "done", "blocked"}
-    if status not in allowed:
-        return RedirectResponse("/mission-control/v1", status_code=303)
-
-    with _connect() as conn:
-        _ensure_operator_queue_table(conn)
-        conn.execute(
-            "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
-            (status, item_id),
-        )
-        conn.commit()
-
+    mc_service.update_operator_item_status(item_id, status)
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
 @router.post("/mission-control/operator-item/{item_id}/convert-to-mission")
 def convert_operator_item_to_mission(item_id: int):
-    with _connect() as conn:
-        _ensure_operator_queue_table(conn)
-
-        item = conn.execute(
-            "SELECT * FROM mission_control_operator_queue WHERE id = ?",
-            (item_id,),
-        ).fetchone()
-
-        if item is None:
-            return RedirectResponse("/mission-control/v1", status_code=303)
-
-        row = dict(item)
-
-        _insert_dynamic(
-            "missions",
-            {
-                "title": row.get("title") or "Converted Mission",
-                "status": "active",
-                "priority": row.get("priority") or "medium",
-                "next_action": row.get("description") or "Define next action.",
-            },
-        )
-
-        conn.execute(
-            "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
-            ("done", item_id),
-        )
-        conn.commit()
-
+    mc_service.convert_operator_item_to_mission(item_id)
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
 @router.post("/mission-control/generate-missions-from-queue")
 def generate_missions_from_queue():
-    with _connect() as conn:
-        _ensure_operator_queue_table(conn)
-
-        rows = conn.execute(
-            """
-            SELECT * FROM mission_control_operator_queue
-            WHERE status IN ('open', 'in_progress')
-            ORDER BY
-              CASE priority
-                WHEN 'critical' THEN 1
-                WHEN 'high' THEN 2
-                WHEN 'medium' THEN 3
-                WHEN 'low' THEN 4
-                ELSE 5
-              END,
-              id ASC
-            
-            """
-        ).fetchall()
-
-        for item in rows:
-            row = dict(item)
-            _insert_dynamic_with_conn(
-                conn,
-                "missions",
-                {
-                    "title": row.get("title") or "Generated Mission",
-                    "status": "active",
-                    "priority": row.get("priority") or "medium",
-                    "next_action": row.get("description") or "Define next action.",
-                },
-            )
-            conn.execute(
-                "UPDATE mission_control_operator_queue SET status = ? WHERE id = ?",
-                ("done", row["id"]),
-            )
-
-        conn.commit()
-
+    mc_service.generate_missions_from_queue()
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
 @router.post("/mission-control/operator-queue/cleanup")
 def cleanup_operator_queue():
-    with _connect() as conn:
-        _ensure_operator_queue_table(conn)
-        conn.execute(
-            "DELETE FROM mission_control_operator_queue WHERE status = ?",
-            ("done",),
-        )
-        conn.commit()
-
+    mc_service.cleanup_done_operator_items()
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
