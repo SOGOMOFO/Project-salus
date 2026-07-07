@@ -896,3 +896,113 @@ def render_model_provider_panel(model_state: dict[str, Any]) -> str:
           </p>
         </section>
     """
+
+
+def render_background_jobs_panel(job_state: dict[str, Any]) -> str:
+    counts = job_state.get("counts", {})
+    jobs = job_state.get("jobs", [])
+    runs = job_state.get("runs", [])
+
+    job_rows = ""
+    for job in jobs:
+        key = cell(job.get("job_key", ""))
+        name = cell(job.get("name", ""))
+        job_type = cell(job.get("job_type", ""))
+        status = cell(job.get("status", ""))
+        enabled = cell(job.get("enabled", 0))
+        schedule_hint = cell(job.get("schedule_hint", ""))
+        next_action = cell(job.get("next_action", ""))
+
+        job_rows += f"""
+          <tr>
+            <td>{key}</td>
+            <td>{name}</td>
+            <td>{job_type}</td>
+            <td>{status}</td>
+            <td>{enabled}</td>
+            <td>{schedule_hint}</td>
+            <td>{next_action}</td>
+            <td>
+              <form method="post" action="/mission-control/background-job/{key}/run">
+                <button type="submit">Run</button>
+              </form>
+              <form method="post" action="/mission-control/background-job/{key}/enable">
+                <button type="submit">Enable</button>
+              </form>
+              <form method="post" action="/mission-control/background-job/{key}/disable">
+                <button type="submit">Disable</button>
+              </form>
+            </td>
+          </tr>
+        """
+
+    if not job_rows:
+        job_rows = "<tr><td colspan='8'>No background jobs registered.</td></tr>"
+
+    run_rows = ""
+    for run in runs[:10]:
+        run_rows += f"""
+          <tr>
+            <td>{cell(run.get("job_key", ""))}</td>
+            <td>{cell(run.get("status", ""))}</td>
+            <td>{cell(run.get("created_at", ""))}</td>
+          </tr>
+        """
+
+    if not run_rows:
+        run_rows = "<tr><td colspan='3'>No job runs recorded.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Background Job Scheduler</h2>
+          <p class="muted">{cell(job_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Jobs</h2><div class="metric">{cell(counts.get("jobs", 0))}</div></div>
+            <div class="card"><h2>Enabled</h2><div class="metric">{cell(counts.get("enabled", 0))}</div></div>
+            <div class="card"><h2>Ready</h2><div class="metric">{cell(counts.get("ready", 0))}</div></div>
+            <div class="card"><h2>Runs</h2><div class="metric">{cell(counts.get("runs", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/background-job/sweep">
+            <button type="submit">Run Safe Sweep</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Enabled</th>
+                  <th>Schedule Hint</th>
+                  <th>Next Action</th>
+                  <th>Controls</th>
+                </tr>
+              </thead>
+              <tbody>{job_rows}</tbody>
+            </table>
+          </div>
+
+          <h3>Recent Job Runs</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>{run_rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/background-jobs">Background Jobs JSON</a> |
+            <a href="/api/mission-control/background-jobs/runs">Job Runs</a>
+          </p>
+        </section>
+    """

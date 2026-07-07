@@ -957,6 +957,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/firewall",
         "/api/mission-control/tool-adapters",
         "/api/mission-control/model-providers",
+        "/api/mission-control/background-jobs",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1434,6 +1435,7 @@ def export_command_state() -> dict[str, Any]:
         "external_action_firewall": get_external_action_firewall_state(),
         "tool_adapters": get_tool_adapter_state(),
         "model_providers": get_model_provider_state(),
+        "background_jobs": get_background_job_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1451,6 +1453,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "external_action_firewall": get_external_action_firewall_state().get("status") == "ok",
         "tool_adapters": get_tool_adapter_state().get("status") == "ok",
         "model_providers": get_model_provider_state().get("status") == "ok",
+        "background_jobs": get_background_job_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -3535,4 +3538,354 @@ def get_model_provider_state() -> dict[str, Any]:
         "routes": routes,
         "requests": requests,
         "recommended_action": "Keep local placeholder active until external model providers are configured and protected by firewall.",
+    }
+
+
+# -------------------------------------------------------------------
+# Background Job Scheduler / Automation Loop
+# -------------------------------------------------------------------
+
+def ensure_background_job_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_background_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                schedule_hint TEXT NOT NULL,
+                last_run_at TEXT,
+                next_action TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_background_job_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_key TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def seed_default_background_jobs() -> None:
+    ensure_background_job_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    jobs = [
+        {
+            "job_key": "morning_command_loop",
+            "name": "Morning Command Loop",
+            "job_type": "daily_loop",
+            "status": "ready",
+            "enabled": 1,
+            "schedule_hint": "manual_or_daily_morning",
+            "next_action": "Generate morning daily loop, readiness review, and commander action.",
+        },
+        {
+            "job_key": "evening_aar_loop",
+            "name": "Evening AAR Loop",
+            "job_type": "daily_loop",
+            "status": "ready",
+            "enabled": 1,
+            "schedule_hint": "manual_or_daily_evening",
+            "next_action": "Generate evening review and capture lessons.",
+        },
+        {
+            "job_key": "snapshot_checkpoint",
+            "name": "Snapshot Checkpoint",
+            "job_type": "snapshot",
+            "status": "ready",
+            "enabled": 1,
+            "schedule_hint": "before_major_build",
+            "next_action": "Create a system snapshot before risky build changes.",
+        },
+        {
+            "job_key": "agent_runtime_sweep",
+            "name": "Agent Runtime Sweep",
+            "job_type": "agent_runtime",
+            "status": "ready",
+            "enabled": 1,
+            "schedule_hint": "manual_when_queue_has_items",
+            "next_action": "Run next safe queued agent task.",
+        },
+        {
+            "job_key": "health_contract_check",
+            "name": "Health Contract Check",
+            "job_type": "health_check",
+            "status": "ready",
+            "enabled": 1,
+            "schedule_hint": "after_each_build",
+            "next_action": "Check system health, route contract, and MVP readiness.",
+        },
+    ]
+
+    with store.connect() as conn:
+        for job in jobs:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_background_jobs
+                (
+                    job_key, name, job_type, status, enabled,
+                    schedule_hint, last_run_at, next_action, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    job["job_key"],
+                    job["name"],
+                    job["job_type"],
+                    job["status"],
+                    job["enabled"],
+                    job["schedule_hint"],
+                    None,
+                    job["next_action"],
+                    now,
+                    now,
+                ),
+            )
+
+        conn.commit()
+
+
+def list_background_jobs(limit: int = 100) -> list[dict[str, Any]]:
+    seed_default_background_jobs()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_background_jobs ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_background_job(job_key: str) -> dict[str, Any] | None:
+    seed_default_background_jobs()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_background_jobs WHERE job_key = ?",
+            (job_key,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def set_background_job_enabled(job_key: str, enabled: bool, actor: str = "commander") -> dict[str, Any]:
+    ensure_background_job_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_background_jobs WHERE job_key = ?",
+            (job_key,),
+        ).fetchone()
+
+        if row is None:
+            seed_default_background_jobs()
+            row = conn.execute(
+                "SELECT id FROM mission_control_background_jobs WHERE job_key = ?",
+                (job_key,),
+            ).fetchone()
+
+        if row is None:
+            return {"status": "not_found", "job_key": job_key}
+
+        conn.execute(
+            """
+            UPDATE mission_control_background_jobs
+            SET enabled = ?, updated_at = ?
+            WHERE job_key = ?
+            """,
+            (1 if enabled else 0, now, job_key),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="background_job_enabled_changed",
+        target_type="background_job",
+        target_id=job_key,
+        detail=f"Background job enabled={enabled}.",
+    )
+
+    return get_background_job(job_key) or {"status": "not_found", "job_key": job_key}
+
+
+def record_background_job_run(job_key: str, status: str, result: dict[str, Any]) -> dict[str, Any]:
+    import json
+
+    ensure_background_job_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_background_job_runs
+            (job_key, status, result, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                job_key,
+                status,
+                json.dumps(result),
+                now,
+            ),
+        )
+        run_id = cursor.lastrowid
+
+        conn.execute(
+            """
+            UPDATE mission_control_background_jobs
+            SET last_run_at = ?, status = ?, updated_at = ?
+            WHERE job_key = ?
+            """,
+            (now, status, now, job_key),
+        )
+
+        conn.commit()
+
+    return {
+        "id": run_id,
+        "job_key": job_key,
+        "status": status,
+        "result": result,
+        "created_at": now,
+    }
+
+
+def list_background_job_runs(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_background_job_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_background_job_runs ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def run_background_job(job_key: str, actor: str = "background_job_runner") -> dict[str, Any]:
+    seed_default_background_jobs()
+    job = get_background_job(job_key)
+
+    if not job:
+        return {"status": "not_found", "job_key": job_key}
+
+    if int(job.get("enabled") or 0) != 1:
+        result = {
+            "status": "disabled",
+            "job_key": job_key,
+            "message": "Job is disabled.",
+        }
+        record_background_job_run(job_key, "disabled", result)
+        return result
+
+    job_type = str(job.get("job_type") or "").lower()
+
+    if job_type == "daily_loop":
+        loop_type = "morning" if "morning" in job_key else "evening" if "evening" in job_key else "full_cycle"
+        result = create_daily_loop(loop_type=loop_type, actor=actor)
+        status = "completed"
+
+    elif job_type == "snapshot":
+        result = create_system_snapshot(label=f"job_{job_key}", actor=actor)
+        status = "completed" if result.get("status") == "created" else "failed"
+
+    elif job_type == "agent_runtime":
+        result = run_next_agent_task(actor=actor)
+        status = "completed" if result.get("status") in {"completed", "idle"} else result.get("status", "unknown")
+
+    elif job_type == "health_check":
+        result = get_local_mvp_readiness()
+        status = "completed" if result.get("status") in {"ready", "degraded"} else "failed"
+
+    else:
+        result = {
+            "status": "unsupported_job_type",
+            "job_key": job_key,
+            "job_type": job_type,
+        }
+        status = "failed"
+
+    run = record_background_job_run(job_key, status, result)
+
+    audit_log(
+        actor=actor,
+        action="background_job_run",
+        target_type="background_job",
+        target_id=job_key,
+        detail=f"Background job {job_key} completed with status={status}.",
+    )
+
+    return {
+        "status": status,
+        "job_key": job_key,
+        "run": run,
+        "result": result,
+    }
+
+
+def run_background_job_sweep(actor: str = "background_job_runner") -> dict[str, Any]:
+    jobs = list_background_jobs()
+    results = []
+
+    for job in jobs:
+        if int(job.get("enabled") or 0) != 1:
+            continue
+
+        job_key = str(job.get("job_key"))
+        if job_key in {"health_contract_check"}:
+            results.append(run_background_job(job_key, actor=actor))
+
+    return {
+        "status": "completed",
+        "mode": "safe_sweep",
+        "attempted": len(results),
+        "results": results,
+        "note": "Safe sweep only runs health-style jobs. Other jobs require manual trigger.",
+    }
+
+
+def get_background_job_state() -> dict[str, Any]:
+    jobs = list_background_jobs()
+    runs = list_background_job_runs(100)
+
+    enabled = [job for job in jobs if int(job.get("enabled") or 0) == 1]
+    ready = [job for job in jobs if str(job.get("status") or "").lower() in {"ready", "completed"}]
+    failed = [job for job in jobs if str(job.get("status") or "").lower() == "failed"]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "jobs": len(jobs),
+            "enabled": len(enabled),
+            "ready": len(ready),
+            "failed": len(failed),
+            "runs": len(runs),
+        },
+        "jobs": jobs,
+        "runs": runs,
+        "recommended_action": (
+            "Run health contract check after each build. Run snapshots before risky changes."
+            if jobs
+            else "Seed background jobs."
+        ),
     }

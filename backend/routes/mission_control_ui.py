@@ -1045,6 +1045,30 @@ async def create_reasoning_request_from_ui(request: Request):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/background-job/sweep")
+def run_background_job_sweep_from_ui():
+    mc_service.run_background_job_sweep(actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/background-job/{job_key}/run")
+def run_background_job_from_ui(job_key: str):
+    mc_service.run_background_job(job_key, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/background-job/{job_key}/enable")
+def enable_background_job_from_ui(job_key: str):
+    mc_service.set_background_job_enabled(job_key, True, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/background-job/{job_key}/disable")
+def disable_background_job_from_ui(job_key: str):
+    mc_service.set_background_job_enabled(job_key, False, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -1118,6 +1142,8 @@ def mission_control_v1(request: Request) -> str:
     tool_adapter_state = mc_service.get_tool_adapter_state()
 
     model_provider_state = mc_service.get_model_provider_state()
+
+    background_job_state = mc_service.get_background_job_state()
 
     return f"""
     <!doctype html>
@@ -1275,7 +1301,9 @@ def mission_control_v1(request: Request) -> str:
 
         {mc_views.render_snapshot_panel(snapshot_state)}
 
-                                                {mc_views.render_model_provider_panel(model_provider_state)}
+                                                        {mc_views.render_background_jobs_panel(background_job_state)}
+
+        {mc_views.render_model_provider_panel(model_provider_state)}
 
         {mc_views.render_tool_adapter_panel(tool_adapter_state)}
 
