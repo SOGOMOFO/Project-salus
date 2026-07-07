@@ -4402,3 +4402,137 @@ def get_local_file_intelligence_state() -> dict[str, Any]:
         ),
     }
 
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Connector Permission Profiles
+# -----------------------------------------------------------------------------
+
+CONNECTOR_PERMISSION_PROFILES = {
+    "local_file_intelligence": {
+        "connector_key": "local_file_intelligence",
+        "display_name": "Local File Intelligence",
+        "status": "enabled",
+        "read_allowed": True,
+        "write_allowed": False,
+        "approval_required": False,
+        "max_risk_level": "low",
+        "notes": "Local read-only project file intelligence.",
+    },
+    "gmail_read_only": {
+        "connector_key": "gmail_read_only",
+        "display_name": "Gmail Read-Only",
+        "status": "planned",
+        "read_allowed": False,
+        "write_allowed": False,
+        "approval_required": True,
+        "max_risk_level": "medium",
+        "notes": "Planned connector. Disabled until explicitly enabled.",
+    },
+    "calendar_read_only": {
+        "connector_key": "calendar_read_only",
+        "display_name": "Calendar Read-Only",
+        "status": "planned",
+        "read_allowed": False,
+        "write_allowed": False,
+        "approval_required": True,
+        "max_risk_level": "medium",
+        "notes": "Planned connector. Disabled until explicitly enabled.",
+    },
+}
+
+
+def _connector_risk_rank(value):
+    return {"low": 1, "medium": 2, "high": 3, "critical": 4}.get(str(value or "").lower(), 4)
+
+
+def list_connector_permission_profiles():
+    return list(CONNECTOR_PERMISSION_PROFILES.values())
+
+
+def get_connector_permission_profile(connector_key):
+    return CONNECTOR_PERMISSION_PROFILES.get(connector_key)
+
+
+def evaluate_connector_permission(connector_key, action_type, risk_level="low"):
+    profile = get_connector_permission_profile(connector_key)
+    action = str(action_type or "").lower().strip()
+    risk = str(risk_level or "low").lower().strip()
+
+    if not profile:
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": connector_key,
+            "action_type": action,
+            "risk_level": risk,
+            "reason": "No connector permission profile exists.",
+        }
+
+    if profile.get("status") != "enabled":
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": connector_key,
+            "action_type": action,
+            "risk_level": risk,
+            "profile": profile,
+            "reason": f"Connector profile status is {profile.get('status')}.",
+        }
+
+    read_actions = {"read", "search", "list", "summarize", "inspect", "index"}
+    write_actions = {"write", "send", "create", "update", "delete", "archive", "label", "move"}
+
+    if action in read_actions and not profile.get("read_allowed"):
+        decision = "blocked"
+        reason = "Read actions are not allowed by this connector profile."
+    elif action in write_actions and not profile.get("write_allowed"):
+        decision = "blocked"
+        reason = "Write actions are blocked by read-only connector policy."
+    elif _connector_risk_rank(risk) > _connector_risk_rank(profile.get("max_risk_level")):
+        decision = "pending_approval"
+        reason = "Action risk exceeds profile max risk level."
+    elif profile.get("approval_required") and risk in {"medium", "high", "critical"}:
+        decision = "pending_approval"
+        reason = "Approval required by connector permission profile."
+    else:
+        decision = "allowed"
+        reason = "Action allowed by connector permission profile."
+
+    return {
+        "status": decision,
+        "decision": decision,
+        "connector_key": connector_key,
+        "action_type": action,
+        "risk_level": risk,
+        "profile": profile,
+        "reason": reason,
+    }
+
+
+def get_connector_permission_policy_state():
+    profiles = list_connector_permission_profiles()
+    read_only = [
+        item for item in profiles
+        if item.get("read_allowed") and not item.get("write_allowed")
+    ]
+    write_enabled = [
+        item for item in profiles
+        if item.get("write_allowed")
+    ]
+
+    return {
+        "status": "ok" if not write_enabled else "warning",
+        "counts": {
+            "profiles": len(profiles),
+            "read_only": len(read_only),
+            "write_enabled": len(write_enabled),
+        },
+        "profiles": profiles,
+        "recommended_action": (
+            "Continue Phase 3 with read-only connector policy."
+            if not write_enabled
+            else "Investigate write-enabled connectors before proceeding."
+        ),
+    }

@@ -3552,6 +3552,8 @@ from backend.routes import mission_control_dashboard_api as _mission_control_das
 app.include_router(_mission_control_dashboard_api_router.router)
 from backend.routes import mission_control_local_file_intelligence_api as _mission_control_local_file_intelligence_api_router
 app.include_router(_mission_control_local_file_intelligence_api_router.router)
+from backend.routes import mission_control_connector_permissions_api as _mission_control_connector_permissions_api_router
+app.include_router(_mission_control_connector_permissions_api_router.router)
 app.include_router(_mission_control_ui_router.router)
 
 from backend.routes import command_home as _command_home_router
@@ -3607,3 +3609,33 @@ async def _salus_security_headers_middleware(request, call_next):
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     response.headers.setdefault("Cache-Control", "no-store")
     return response
+
+
+
+# Phase 3: Direct connector permission fallback routes
+@app.get("/api/mission-control/connector-permissions")
+def _phase3_connector_permissions_state():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_connector_permission_policy_state()
+
+
+@app.post("/api/mission-control/connector-permissions/evaluate")
+def _phase3_connector_permissions_evaluate(
+    connector_key: str,
+    action_type: str,
+    risk_level: str = "low",
+):
+    from backend import mission_control_service as mc_service
+    return mc_service.evaluate_connector_permission(
+        connector_key=connector_key,
+        action_type=action_type,
+        risk_level=risk_level,
+    )
+
+
+@app.get("/api/mission-control/connector-permissions/{connector_key}")
+def _phase3_connector_permission_profile(connector_key: str):
+    from backend import mission_control_service as mc_service
+    profile = mc_service.get_connector_permission_profile(connector_key)
+    return profile or {"status": "not_found", "connector_key": connector_key}
+
