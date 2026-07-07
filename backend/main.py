@@ -3780,3 +3780,39 @@ def _phase3_daily_driver_health():
     from backend import mission_control_service as mc_service
     return mc_service.get_daily_driver_health_state()
 
+
+
+
+# Phase 3: End My Day workflow fallback routes
+@app.get("/api/mission-control/end-my-day")
+def _phase3_end_my_day():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_end_my_day_workflow_state()
+
+
+@app.post("/api/mission-control/end-my-day/aar")
+def _phase3_end_my_day_aar(
+    moved_forward: str = "",
+    blocked: str = "",
+    improve_tomorrow: str = "",
+    remember_or_track: str = "",
+    highest_value_action: str = "",
+):
+    from backend import mission_control_service as mc_service
+    return mc_service.build_end_my_day_aar_entry(
+        moved_forward=moved_forward,
+        blocked=blocked,
+        improve_tomorrow=improve_tomorrow,
+        remember_or_track=remember_or_track,
+        highest_value_action=highest_value_action,
+    )
+
+
+
+
+# Phase 3: Start My Day workflow fallback route
+@app.get("/api/mission-control/start-my-day")
+def _phase3_start_my_day():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_start_my_day_workflow_state()
+

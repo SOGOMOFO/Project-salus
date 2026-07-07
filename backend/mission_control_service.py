@@ -5219,3 +5219,231 @@ def get_daily_driver_health_state():
         "recommended_action": recommended_action,
         "next_daily_action": "Open Mission Control and run Start My Day workflow.",
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: End My Day AAR Workflow
+# -----------------------------------------------------------------------------
+
+def _end_my_day_default_questions():
+    return [
+        "What moved forward today?",
+        "What got blocked?",
+        "What decision should be improved tomorrow?",
+        "What should Project Salus remember, track, or watch next?",
+        "What is the single highest-value action for tomorrow?",
+    ]
+
+
+def get_end_my_day_workflow_state():
+    try:
+        start_state = get_start_my_day_workflow_state()
+    except Exception as exc:
+        start_state = {
+            "status": "warning",
+            "workflow": "start_my_day",
+            "daily_use_ready": False,
+            "top_actions": [],
+            "top_risks": [f"Start My Day workflow unavailable: {exc}"],
+            "recommended_next_step": "Repair Start My Day workflow.",
+        }
+
+    try:
+        health = get_daily_driver_health_state()
+    except Exception as exc:
+        health = {
+            "status": "not_ready",
+            "daily_use_ready": False,
+            "counts": {"ok": 0, "warnings": 0, "failures": 1, "components": 1},
+            "recommended_action": f"Daily driver health unavailable: {exc}",
+        }
+
+    carry_forward = []
+
+    for action in start_state.get("top_actions", []):
+        carry_forward.append({
+            "source": "start_my_day_top_action",
+            "item": action,
+            "recommended_disposition": "complete_or_carry_forward",
+        })
+
+    if not carry_forward:
+        carry_forward.append({
+            "source": "default",
+            "item": "Identify tomorrow's single highest-value mission block.",
+            "recommended_disposition": "carry_forward",
+        })
+
+    risks = list(start_state.get("top_risks", []))
+    if health.get("status") in {"not_ready", "usable_with_warnings"}:
+        risks.append("Daily driver health was not fully ready today.")
+
+    if not risks:
+        risks.append("No major end-of-day risk detected.")
+
+    return {
+        "status": "ok",
+        "workflow": "end_my_day",
+        "daily_use_ready": bool(health.get("daily_use_ready")),
+        "health_status": health.get("status"),
+        "aar_type": "daily_closeout",
+        "commander_closeout_intent": (
+            "Capture what happened, preserve lessons learned, reduce tomorrow's friction, "
+            "and carry forward only the actions that still matter."
+        ),
+        "aar_questions": _end_my_day_default_questions(),
+        "carry_forward_candidates": carry_forward[:5],
+        "risk_review": risks[:5],
+        "tomorrow_setup": {
+            "recommended_first_action": carry_forward[0]["item"],
+            "recommended_review": "Run Start My Day workflow tomorrow before opening new tasks.",
+            "constraint": "Do not activate live external connectors without approval controls.",
+        },
+        "recommended_next_step": "Answer the AAR questions and convert one item into tomorrow's first mission block.",
+    }
+
+
+def build_end_my_day_aar_entry(
+    moved_forward="",
+    blocked="",
+    improve_tomorrow="",
+    remember_or_track="",
+    highest_value_action="",
+):
+    state = get_end_my_day_workflow_state()
+
+    return {
+        "status": "ok",
+        "workflow": "end_my_day",
+        "aar_type": "daily_closeout_entry",
+        "answers": {
+            "moved_forward": moved_forward,
+            "blocked": blocked,
+            "improve_tomorrow": improve_tomorrow,
+            "remember_or_track": remember_or_track,
+            "highest_value_action": highest_value_action,
+        },
+        "tomorrow_first_action": highest_value_action or state["tomorrow_setup"]["recommended_first_action"],
+        "recommended_next_step": "Review this AAR tomorrow during Start My Day.",
+    }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Start My Day Workflow
+# -----------------------------------------------------------------------------
+
+def _safe_call_daily_driver_health():
+    try:
+        return get_daily_driver_health_state()
+    except Exception as exc:
+        return {
+            "status": "not_ready",
+            "daily_use_ready": False,
+            "counts": {"ok": 0, "warnings": 0, "failures": 1, "components": 1},
+            "components": [
+                {
+                    "name": "daily_driver_health",
+                    "status": "fail",
+                    "detail": f"Daily driver health failed: {exc}",
+                    "recommended_action": "Repair daily driver health before using Project Salus.",
+                }
+            ],
+            "recommended_action": "Repair daily driver health.",
+        }
+
+
+def _safe_connector_readiness_for_start_day():
+    try:
+        return get_connector_readiness_registry_state()
+    except Exception as exc:
+        return {
+            "status": "warning",
+            "counts": {
+                "connectors": 0,
+                "ready_read_only": 0,
+                "shell_only": 0,
+                "write_enabled": 0,
+            },
+            "connectors": [],
+            "recommended_action": f"Connector readiness unavailable: {exc}",
+        }
+
+
+def get_start_my_day_workflow_state():
+    health = _safe_call_daily_driver_health()
+    connectors = _safe_connector_readiness_for_start_day()
+
+    health_status = health.get("status", "unknown")
+    daily_use_ready = bool(health.get("daily_use_ready"))
+
+    risks = []
+    actions = []
+
+    if not daily_use_ready:
+        risks.append("Daily driver health is not fully ready.")
+        actions.append("Run python scripts/daily_driver_check.py and repair failed components.")
+    else:
+        actions.append("Open Mission Control and review current missions.")
+
+    connector_counts = connectors.get("counts", {})
+    if connector_counts.get("write_enabled", 0) > 0:
+        risks.append("One or more connectors appear write-enabled.")
+        actions.append("Review connector permission policy before using external integrations.")
+    else:
+        actions.append("Keep all connectors read-only unless explicitly approved.")
+
+    if health_status == "usable_with_warnings":
+        risks.append("System is usable with warnings.")
+        actions.append("Use local workflows only; avoid live connector activation.")
+    elif health_status == "ready":
+        actions.append("Execute today’s top mission block and capture an end-of-day AAR.")
+
+    while len(actions) < 3:
+        if len(actions) == 0:
+            actions.append("Open Mission Control.")
+        elif len(actions) == 1:
+            actions.append("Select one school, business, or family priority.")
+        else:
+            actions.append("Log one end-of-day AAR before shutdown.")
+
+    if not risks:
+        risks.append("No blocking daily-driver risks detected.")
+
+    return {
+        "status": "ok",
+        "workflow": "start_my_day",
+        "daily_use_ready": daily_use_ready,
+        "health_status": health_status,
+        "commander_intent": (
+            "Use Project Salus today as a local command system: clarify priorities, "
+            "protect focus, avoid unsafe connector activation, and capture lessons learned."
+        ),
+        "mission_focus": {
+            "primary": "Move one high-value objective forward today.",
+            "secondary": "Protect school, Echo Seven, family, health, and system stability.",
+            "constraint": "Do not activate live external connectors without explicit approval controls.",
+        },
+        "top_risks": risks[:5],
+        "top_actions": actions[:3],
+        "connector_posture": {
+            "status": connectors.get("status"),
+            "counts": connector_counts,
+            "recommended_action": connectors.get("recommended_action"),
+        },
+        "health_summary": {
+            "status": health_status,
+            "counts": health.get("counts", {}),
+            "recommended_action": health.get("recommended_action"),
+        },
+        "end_of_day_aar_prompt": {
+            "questions": [
+                "What moved forward today?",
+                "What got blocked?",
+                "What decision should be improved tomorrow?",
+                "What should Project Salus remember or track next?",
+            ]
+        },
+        "recommended_next_step": "Open Mission Control, review top actions, then execute the first mission block.",
+    }
