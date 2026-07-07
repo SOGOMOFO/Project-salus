@@ -952,6 +952,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/agent/risk-dashboard",
         "/api/mission-control/snapshots",
         "/api/mission-control/mvp-readiness",
+        "/api/mission-control/connectors",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1424,6 +1425,7 @@ def export_command_state() -> dict[str, Any]:
         },
         "records": list_records(100),
         "daily_loops": list_daily_loops(50),
+        "connectors": get_connector_registry_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1436,6 +1438,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "snapshots": get_snapshot_system_state().get("status") == "ok",
         "records": isinstance(list_records(10), list),
         "daily_loop": isinstance(list_daily_loops(10), list),
+        "connectors": get_connector_registry_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -1453,4 +1456,356 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "checks": checks,
         "failed_checks": failed,
         "recommended_action": recommendation,
+    }
+
+
+def ensure_connector_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_connectors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                connector_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                connector_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                permission_level TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                config_summary TEXT,
+                last_health_check TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_connector_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                connector_key TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def seed_default_connectors() -> None:
+    ensure_connector_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    defaults = [
+        {
+            "connector_key": "gmail",
+            "name": "Gmail",
+            "connector_type": "email",
+            "status": "not_connected",
+            "permission_level": "external_read",
+            "enabled": 0,
+            "config_summary": "Future connector for email search, reading, drafting, and commander-approved sending.",
+        },
+        {
+            "connector_key": "google_calendar",
+            "name": "Google Calendar",
+            "connector_type": "calendar",
+            "status": "not_connected",
+            "permission_level": "external_read_write",
+            "enabled": 0,
+            "config_summary": "Future connector for schedule visibility, availability, and approved event creation.",
+        },
+        {
+            "connector_key": "files",
+            "name": "Files / Documents",
+            "connector_type": "files",
+            "status": "local_ready",
+            "permission_level": "local_read_write",
+            "enabled": 1,
+            "config_summary": "Local file and document reference layer.",
+        },
+        {
+            "connector_key": "finance",
+            "name": "Finance Data",
+            "connector_type": "finance",
+            "status": "not_connected",
+            "permission_level": "sensitive_read",
+            "enabled": 0,
+            "config_summary": "Future connector for personal finance, spending, subscriptions, and portfolio views.",
+        },
+        {
+            "connector_key": "webhooks",
+            "name": "Webhooks",
+            "connector_type": "api",
+            "status": "not_configured",
+            "permission_level": "external_receive",
+            "enabled": 0,
+            "config_summary": "Future inbound/outbound webhook bridge for external systems.",
+        },
+        {
+            "connector_key": "model_providers",
+            "name": "Model Providers",
+            "connector_type": "ai_model",
+            "status": "planned",
+            "permission_level": "model_runtime",
+            "enabled": 0,
+            "config_summary": "Future abstraction for OpenAI, local models, and fallback providers.",
+        },
+    ]
+
+    with store.connect() as conn:
+        for connector in defaults:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO mission_control_connectors
+                (
+                    connector_key, name, connector_type, status, permission_level,
+                    enabled, config_summary, last_health_check, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    connector["connector_key"],
+                    connector["name"],
+                    connector["connector_type"],
+                    connector["status"],
+                    connector["permission_level"],
+                    connector["enabled"],
+                    connector["config_summary"],
+                    None,
+                    now,
+                    now,
+                ),
+            )
+
+        conn.commit()
+
+
+def list_connectors(limit: int = 100) -> list[dict[str, Any]]:
+    seed_default_connectors()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_connectors ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_connector(connector_key: str) -> dict[str, Any] | None:
+    seed_default_connectors()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_connectors WHERE connector_key = ?",
+            (connector_key,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def upsert_connector_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_connector_tables()
+
+    connector_key = str(payload.get("connector_key") or "").strip().lower().replace(" ", "_")
+    if not connector_key:
+        return {"status": "failed", "reason": "connector_key_required"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO mission_control_connectors
+            (
+                connector_key, name, connector_type, status, permission_level,
+                enabled, config_summary, last_health_check, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(connector_key) DO UPDATE SET
+                name = excluded.name,
+                connector_type = excluded.connector_type,
+                status = excluded.status,
+                permission_level = excluded.permission_level,
+                enabled = excluded.enabled,
+                config_summary = excluded.config_summary,
+                updated_at = excluded.updated_at
+            """,
+            (
+                connector_key,
+                payload.get("name") or connector_key,
+                payload.get("connector_type") or "generic",
+                payload.get("status") or "planned",
+                payload.get("permission_level") or "external_read",
+                1 if payload.get("enabled") in {True, 1, "1", "true", "yes", "on"} else 0,
+                payload.get("config_summary") or "",
+                None,
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("actor") or "commander",
+        action="connector_upserted",
+        target_type="connector",
+        target_id=connector_key,
+        detail=f"Connector {connector_key} upserted.",
+    )
+
+    return get_connector(connector_key) or {"status": "failed", "reason": "connector_not_found_after_upsert"}
+
+
+def update_connector_status(connector_key: str, status: str, detail: str = "", actor: str = "system") -> dict[str, Any]:
+    ensure_connector_tables()
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_connectors WHERE connector_key = ?",
+            (connector_key,),
+        ).fetchone()
+
+        if row is None:
+            return {"status": "not_found", "connector_key": connector_key}
+
+        conn.execute(
+            """
+            UPDATE mission_control_connectors
+            SET status = ?, last_health_check = ?, updated_at = ?
+            WHERE connector_key = ?
+            """,
+            (status, now, now, connector_key),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO mission_control_connector_events
+            (connector_key, event_type, status, detail, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                connector_key,
+                "status_update",
+                status,
+                detail or f"Connector status updated to {status}.",
+                now,
+            ),
+        )
+
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="connector_status_updated",
+        target_type="connector",
+        target_id=connector_key,
+        detail=detail or f"Connector status updated to {status}.",
+    )
+
+    return get_connector(connector_key) or {"status": "not_found", "connector_key": connector_key}
+
+
+def set_connector_enabled(connector_key: str, enabled: bool, actor: str = "commander") -> dict[str, Any]:
+    ensure_connector_tables()
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM mission_control_connectors WHERE connector_key = ?",
+            (connector_key,),
+        ).fetchone()
+
+        if row is None:
+            return {"status": "not_found", "connector_key": connector_key}
+
+        conn.execute(
+            """
+            UPDATE mission_control_connectors
+            SET enabled = ?, updated_at = ?
+            WHERE connector_key = ?
+            """,
+            (1 if enabled else 0, now, connector_key),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO mission_control_connector_events
+            (connector_key, event_type, status, detail, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                connector_key,
+                "enabled_changed",
+                "enabled" if enabled else "disabled",
+                f"Connector enabled={enabled}",
+                now,
+            ),
+        )
+
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="connector_enabled_changed",
+        target_type="connector",
+        target_id=connector_key,
+        detail=f"Connector enabled={enabled}",
+    )
+
+    return get_connector(connector_key) or {"status": "not_found", "connector_key": connector_key}
+
+
+def list_connector_events(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_connector_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_connector_events ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_connector_registry_state() -> dict[str, Any]:
+    connectors = list_connectors()
+    events = list_connector_events(50)
+
+    enabled = [connector for connector in connectors if int(connector.get("enabled") or 0) == 1]
+    connected = [
+        connector for connector in connectors
+        if str(connector.get("status") or "").lower() in {"connected", "ready", "local_ready"}
+    ]
+    sensitive = [
+        connector for connector in connectors
+        if str(connector.get("permission_level") or "").lower() in {"sensitive_read", "external_read_write", "external_send"}
+    ]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "total": len(connectors),
+            "enabled": len(enabled),
+            "connected_or_ready": len(connected),
+            "sensitive": len(sensitive),
+            "events": len(events),
+        },
+        "connectors": connectors,
+        "events": events,
+        "recommended_action": (
+            "Connector registry ready. Enable only one connector at a time with explicit permission gates."
+            if connectors
+            else "Seed default connectors."
+        ),
     }

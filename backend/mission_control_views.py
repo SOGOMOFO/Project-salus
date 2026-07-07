@@ -420,3 +420,90 @@ def render_daily_loop_panel(loops: list[dict[str, Any]], readiness: dict[str, An
           </p>
         </section>
     """
+
+
+def render_connector_registry_panel(connector_state: dict[str, Any]) -> str:
+    counts = connector_state.get("counts", {})
+    connectors = connector_state.get("connectors", [])
+
+    rows = ""
+
+    for connector in connectors:
+        key = cell(connector.get("connector_key", ""))
+        name = cell(connector.get("name", ""))
+        connector_type = cell(connector.get("connector_type", ""))
+        status = cell(connector.get("status", ""))
+        permission_level = cell(connector.get("permission_level", ""))
+        enabled = int(connector.get("enabled") or 0)
+
+        rows += f"""
+          <tr>
+            <td>{key}</td>
+            <td>{name}</td>
+            <td>{connector_type}</td>
+            <td>{status}</td>
+            <td>{permission_level}</td>
+            <td>{cell(enabled)}</td>
+            <td>
+              <form method="post" action="/mission-control/connector/{key}/enable">
+                <button type="submit">Enable</button>
+              </form>
+              <form method="post" action="/mission-control/connector/{key}/disable">
+                <button type="submit">Disable</button>
+              </form>
+              <form method="post" action="/mission-control/connector/{key}/status/local_ready">
+                <button type="submit">Mark Ready</button>
+              </form>
+            </td>
+          </tr>
+        """
+
+    if not rows:
+        rows = "<tr><td colspan='7'>No connectors registered.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Connector Registry</h2>
+          <p class="muted">{cell(connector_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Total</h2><div class="metric">{cell(counts.get("total", 0))}</div></div>
+            <div class="card"><h2>Enabled</h2><div class="metric">{cell(counts.get("enabled", 0))}</div></div>
+            <div class="card"><h2>Ready</h2><div class="metric">{cell(counts.get("connected_or_ready", 0))}</div></div>
+            <div class="card"><h2>Sensitive</h2><div class="metric">{cell(counts.get("sensitive", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/connector">
+            <input name="connector_key" placeholder="connector_key" required>
+            <input name="name" placeholder="Connector name" required>
+            <input name="connector_type" placeholder="type" value="generic">
+            <input name="permission_level" placeholder="permission" value="external_read">
+            <input name="status" placeholder="status" value="planned">
+            <textarea name="config_summary" placeholder="Config summary"></textarea>
+            <label><input type="checkbox" name="enabled" value="1"> Enabled</label>
+            <button type="submit">Save Connector</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Permission</th>
+                  <th>Enabled</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/connectors">Connectors JSON</a> |
+            <a href="/api/mission-control/connectors/events">Connector Events</a>
+          </p>
+        </section>
+    """

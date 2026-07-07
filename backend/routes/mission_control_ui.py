@@ -898,6 +898,50 @@ def create_daily_loop_from_ui(loop_type: str):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/connector")
+async def upsert_connector_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mc_service.upsert_connector_from_payload(
+        {
+            "connector_key": _form_value(form, "connector_key", ""),
+            "name": _form_value(form, "name", ""),
+            "connector_type": _form_value(form, "connector_type", "generic"),
+            "status": _form_value(form, "status", "planned"),
+            "permission_level": _form_value(form, "permission_level", "external_read"),
+            "enabled": _form_value(form, "enabled", "0"),
+            "config_summary": _form_value(form, "config_summary", ""),
+            "actor": "commander_ui",
+        }
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/connector/{connector_key}/enable")
+def enable_connector_from_ui(connector_key: str):
+    mc_service.set_connector_enabled(connector_key, True, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/connector/{connector_key}/disable")
+def disable_connector_from_ui(connector_key: str):
+    mc_service.set_connector_enabled(connector_key, False, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/connector/{connector_key}/status/{status}")
+def update_connector_status_from_ui(connector_key: str, status: str):
+    mc_service.update_connector_status(
+        connector_key=connector_key,
+        status=status,
+        detail=f"Updated from UI to {status}.",
+        actor="commander_ui",
+    )
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -961,6 +1005,8 @@ def mission_control_v1(request: Request) -> str:
     records = mc_service.list_records()
     daily_loops = mc_service.list_daily_loops()
     mvp_readiness = mc_service.get_local_mvp_readiness()
+
+    connector_state = mc_service.get_connector_registry_state()
 
     return f"""
     <!doctype html>
@@ -1117,6 +1163,8 @@ def mission_control_v1(request: Request) -> str:
         {mc_views.render_system_health_panel(system_health)}
 
         {mc_views.render_snapshot_panel(snapshot_state)}
+
+                {mc_views.render_connector_registry_panel(connector_state)}
 
         {mc_views.render_daily_loop_panel(daily_loops, mvp_readiness)}
 
