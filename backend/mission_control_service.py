@@ -3960,3 +3960,121 @@ def get_local_auth_state() -> dict[str, Any]:
         "default_password_warning": config["default_password_warning"],
         "recommended_action": config["recommended_action"],
     }
+
+
+# -------------------------------------------------------------------
+# Command Center Overview / Architecture Contract Repair
+# -------------------------------------------------------------------
+
+def get_command_center_overview() -> dict[str, Any]:
+    readiness = get_local_mvp_readiness()
+
+    return {
+        "status": "ok",
+        "readiness": readiness.get("status", "unknown"),
+        "counts": {
+            "active_missions": len(get_mission_control_state().get("active_missions", [])),
+            "agent_tasks": get_agent_execution_state().get("counts", {}).get("total", 0),
+            "runtime_queued": get_agent_runtime_state().get("counts", {}).get("queued", 0),
+            "connectors": get_connector_registry_state().get("counts", {}).get("total", 0),
+            "firewall_pending": get_external_action_firewall_state().get("counts", {}).get("pending_approval", 0),
+            "tool_adapters": get_tool_adapter_state().get("counts", {}).get("total", 0),
+            "model_requests": get_model_provider_state().get("counts", {}).get("requests", 0),
+            "background_jobs": get_background_job_state().get("counts", {}).get("jobs", 0),
+            "snapshots": get_snapshot_system_state().get("snapshot_count", 0),
+        },
+        "warnings": [
+            "Default local password is active."
+        ] if get_local_auth_state().get("default_password_warning") else [],
+        "recommended_action": "Command Center operational. Continue controlled Phase 2 buildout.",
+    }
+
+
+def get_project_salus_architecture_manifest(app: Any | None = None) -> dict[str, Any]:
+    manifest = {
+        "status": "ok",
+        "project": "Project Salus",
+        "phase": "Local Phase 2 Foundation",
+        "architecture_version": "2.0-local-foundation",
+        "major_subsystems": [
+            {"key": "mission_control", "name": "Mission Control Core"},
+            {"key": "agent_execution", "name": "Agent Execution Registry"},
+            {"key": "agent_runtime", "name": "Agent Runtime Worker"},
+            {"key": "external_action_firewall", "name": "External Action Firewall"},
+            {"key": "connectors", "name": "Connector Registry"},
+            {"key": "tool_adapters", "name": "Tool Adapter Interface"},
+            {"key": "model_providers", "name": "Model Provider Router"},
+            {"key": "background_jobs", "name": "Background Job Scheduler"},
+            {"key": "snapshots", "name": "Snapshot Backup System"},
+            {"key": "records", "name": "Memory / Records Link-In"},
+            {"key": "auth", "name": "Local Dashboard Access Gate"},
+        ],
+        "safety_controls": [
+            "Local dashboard auth gate",
+            "External action firewall",
+            "Agent approval workflow",
+            "Audit logs",
+            "Snapshot backups",
+        ],
+    }
+
+    if app is not None:
+        routes = get_route_inventory(app)
+        manifest["route_count"] = len(routes)
+        manifest["mission_control_route_count"] = len(
+            [route for route in routes if route.get("is_mission_control")]
+        )
+
+    return manifest
+
+
+def get_project_salus_contract(app: Any | None = None) -> dict[str, Any]:
+    required_routes = [
+        "/mission-control/v1",
+        "/mission-control/login",
+        "/api/mission-control/dashboard",
+        "/api/mission-control/mvp-readiness",
+        "/api/mission-control/auth/status",
+        "/api/mission-control/background-jobs",
+        "/api/mission-control/model-providers",
+        "/api/mission-control/tool-adapters",
+        "/api/mission-control/firewall",
+        "/api/mission-control/connectors",
+        "/api/mission-control/agent-runtime",
+        "/api/mission-control/agent/state",
+        "/api/mission-control/snapshots",
+        "/api/mission-control/export",
+        "/api/mission-control/architecture",
+        "/api/mission-control/system-contract",
+    ]
+
+    route_status = {"checked": False, "missing": [], "present": []}
+
+    if app is not None:
+        routes = get_route_inventory(app)
+        paths = {route["path"] for route in routes}
+        route_status = {
+            "checked": True,
+            "missing": [route for route in required_routes if route not in paths],
+            "present": [route for route in required_routes if route in paths],
+        }
+
+    failures = []
+    if route_status["checked"] and route_status["missing"]:
+        failures.append("missing_required_routes")
+
+    return {
+        "status": "degraded" if failures else "ok",
+        "contract_version": "2.0-local-foundation",
+        "manifest": get_project_salus_architecture_manifest(app),
+        "required_routes": required_routes,
+        "route_status": route_status,
+        "readiness": get_local_mvp_readiness(),
+        "auth": get_local_auth_state(),
+        "failures": failures,
+        "recommended_action": (
+            "Fix degraded contract checks before proceeding."
+            if failures
+            else "Project Salus Local Phase 2 contract is valid."
+        ),
+    }

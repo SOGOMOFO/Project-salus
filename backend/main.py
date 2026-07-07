@@ -3548,7 +3548,43 @@ app.include_router(_mission_control_snapshot_api_router.router)
 app.include_router(_mission_control_health_api_router.router)
 app.include_router(_mission_control_agent_api_router.router)
 app.include_router(_mission_control_external_api_router.router)
+from backend.routes import mission_control_dashboard_api as _mission_control_dashboard_api_router
+app.include_router(_mission_control_dashboard_api_router.router)
 app.include_router(_mission_control_ui_router.router)
 
 from backend.routes import command_home as _command_home_router
 app.include_router(_command_home_router.router)
+
+from backend.routes import mission_control_architecture_api as _mission_control_architecture_api_router
+from backend.routes import mission_control_dashboard_api as _mission_control_dashboard_api_router
+
+from backend.routes import mission_control_architecture_api as _mission_control_architecture_api_router
+app.include_router(_mission_control_architecture_api_router.router)
+
+
+# -------------------------------------------------------------------
+# Direct fallback routes for Phase 2 dashboard/architecture APIs
+# -------------------------------------------------------------------
+
+@app.get("/api/mission-control/dashboard")
+def _fallback_api_command_center_overview():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_command_center_overview()
+
+
+@app.get("/api/mission-control/architecture")
+def _fallback_api_architecture_manifest():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_project_salus_architecture_manifest(app)
+
+
+@app.get("/api/mission-control/system-contract")
+def _fallback_api_project_salus_contract():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_project_salus_contract(app)
+
+
+@app.get("/api/mission-control/auth/status")
+def _fallback_api_local_auth_status():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_local_auth_state()
