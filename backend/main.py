@@ -3556,6 +3556,8 @@ from backend.routes import mission_control_connector_permissions_api as _mission
 app.include_router(_mission_control_connector_permissions_api_router.router)
 from backend.routes import mission_control_gmail_read_only_api as _mission_control_gmail_read_only_api_router
 app.include_router(_mission_control_gmail_read_only_api_router.router)
+from backend.routes import mission_control_calendar_read_only_api as _mission_control_calendar_read_only_api_router
+app.include_router(_mission_control_calendar_read_only_api_router.router)
 app.include_router(_mission_control_ui_router.router)
 
 from backend.routes import command_home as _command_home_router
@@ -3677,4 +3679,41 @@ def _phase3_gmail_read_only_evaluate(
 def _phase3_gmail_read_only_activation_plan():
     from backend import mission_control_service as mc_service
     return mc_service.get_gmail_read_only_activation_plan()
+
+
+
+
+# Phase 3: Direct Calendar read-only fallback routes
+@app.get("/api/mission-control/calendar-read-only")
+def _phase3_calendar_read_only_state():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_calendar_read_only_connector_state()
+
+
+@app.get("/api/mission-control/calendar-read-only/capabilities")
+def _phase3_calendar_read_only_capabilities():
+    from backend import mission_control_service as mc_service
+    return {
+        "status": "ok",
+        "connector_key": "calendar_read_only",
+        "capabilities": mc_service.list_calendar_read_only_capabilities(),
+    }
+
+
+@app.post("/api/mission-control/calendar-read-only/evaluate")
+def _phase3_calendar_read_only_evaluate(
+    action_type: str,
+    risk_level: str = "medium",
+):
+    from backend import mission_control_service as mc_service
+    return mc_service.evaluate_calendar_read_only_request(
+        action_type=action_type,
+        risk_level=risk_level,
+    )
+
+
+@app.get("/api/mission-control/calendar-read-only/activation-plan")
+def _phase3_calendar_read_only_activation_plan():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_calendar_read_only_activation_plan()
 

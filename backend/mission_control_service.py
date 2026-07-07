@@ -4645,3 +4645,113 @@ def get_gmail_read_only_activation_plan():
             "no_write_actions",
         ],
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Calendar Read-Only Connector Shell
+# -----------------------------------------------------------------------------
+
+CALENDAR_READ_ONLY_CAPABILITIES = [
+    {
+        "capability": "list_calendar_events_metadata",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "List calendar event metadata after connector activation.",
+    },
+    {
+        "capability": "search_calendar_events",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "Search calendar events after connector activation.",
+    },
+    {
+        "capability": "summarize_daily_calendar",
+        "status": "planned",
+        "access_level": "read_only",
+        "description": "Summarize daily schedule after connector activation.",
+    },
+]
+
+CALENDAR_READ_ONLY_BLOCKED_ACTIONS = [
+    "create",
+    "update",
+    "delete",
+    "move",
+    "invite",
+    "respond",
+    "accept",
+    "decline",
+    "tentative",
+    "reschedule",
+    "cancel",
+]
+
+
+def list_calendar_read_only_capabilities():
+    return CALENDAR_READ_ONLY_CAPABILITIES
+
+
+def get_calendar_read_only_connector_state():
+    permission = evaluate_connector_permission(
+        "calendar_read_only",
+        "read",
+        "medium",
+    )
+
+    return {
+        "status": "ok",
+        "connector_key": "calendar_read_only",
+        "display_name": "Calendar Read-Only Connector",
+        "mode": "shell",
+        "live_access_enabled": False,
+        "read_only": True,
+        "write_actions_blocked": True,
+        "blocked_actions": CALENDAR_READ_ONLY_BLOCKED_ACTIONS,
+        "capabilities": list_calendar_read_only_capabilities(),
+        "permission_check": permission,
+        "recommended_action": (
+            "Keep Calendar connector in shell mode until explicit read-only activation is approved."
+        ),
+    }
+
+
+def evaluate_calendar_read_only_request(action_type, risk_level="medium"):
+    action = str(action_type or "").lower().strip()
+
+    if action in CALENDAR_READ_ONLY_BLOCKED_ACTIONS:
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": "calendar_read_only",
+            "action_type": action,
+            "risk_level": risk_level,
+            "reason": "Calendar write or mutation action blocked by read-only connector shell.",
+        }
+
+    return evaluate_connector_permission(
+        "calendar_read_only",
+        action,
+        risk_level,
+    )
+
+
+def get_calendar_read_only_activation_plan():
+    return {
+        "status": "planned",
+        "connector_key": "calendar_read_only",
+        "activation_steps": [
+            "Confirm connector permission profile remains read-only.",
+            "Confirm no create, update, delete, invite, respond, or reschedule operations are exposed.",
+            "Add explicit commander approval gate before live Calendar access.",
+            "Add audit logging for every Calendar read request.",
+            "Add tests proving write actions remain blocked.",
+        ],
+        "required_controls": [
+            "read_only_scope",
+            "approval_gate",
+            "audit_log",
+            "permission_profile_check",
+            "no_write_actions",
+        ],
+    }
