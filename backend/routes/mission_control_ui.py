@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from urllib.parse import parse_qs
 
 from backend import mission_control_store as mc_store
+from backend import mission_control_views as mc_views
 
 
 router = APIRouter(tags=["mission-control-ui"])
@@ -122,36 +123,7 @@ def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], 
 
 
 def _operator_queue_table(rows: list[dict[str, Any]]) -> str:
-    if not rows:
-        return "<p class='muted'>No operator queue items.</p>"
-
-    body = ""
-    for row in rows:
-        item_id = html.escape(str(row.get("id", "")))
-        title = html.escape(str(row.get("title", "Untitled")))
-        description = html.escape(str(row.get("description", "")))
-        status = html.escape(str(row.get("status", "")))
-        priority = html.escape(str(row.get("priority", "")))
-        queue_type = html.escape(str(row.get("queue_type", "")))
-
-        body += f"""
-        <article class="mission-card">
-          <div class="mission-top">
-            <strong>{title}</strong>
-            <span>{priority}</span>
-          </div>
-          <p>{description}</p>
-          <p class="muted">Type: {queue_type} | Status: {status}</p>
-          <div class="mission-actions">
-            <form method="post" action="/mission-control/operator-item/{item_id}/status/in_progress"><button>In Progress</button></form>
-            <form method="post" action="/mission-control/operator-item/{item_id}/status/blocked"><button>Blocked</button></form>
-            <form method="post" action="/mission-control/operator-item/{item_id}/status/done"><button>Done</button></form>
-            <form method="post" action="/mission-control/operator-item/{item_id}/convert-to-mission"><button>Convert to Mission</button></form>
-          </div>
-        </article>
-        """
-
-    return body
+    return mc_views.render_operator_queue_table(rows)
 
 
 
