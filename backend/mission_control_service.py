@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 
 from datetime import datetime, timezone
 from typing import Any
@@ -949,6 +950,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/agent/state",
         "/api/mission-control/agent/tasks",
         "/api/mission-control/agent/risk-dashboard",
+        "/api/mission-control/snapshots",
     ]
 
     present = {route["path"] for route in routes}
@@ -1015,3 +1017,214 @@ def _storage_health_check() -> bool:
         return True
     except Exception:
         return False
+
+
+def _snapshot_dir() -> Path:
+    directory = Path("snapshots")
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _snapshot_metadata_path(snapshot_name: str) -> Path:
+    return _snapshot_dir() / f"{snapshot_name}.json"
+
+
+def _snapshot_db_path(snapshot_name: str) -> Path:
+    return _snapshot_dir() / f"{snapshot_name}.db"
+
+
+def create_system_snapshot(label: str | None = None, actor: str = "commander") -> dict[str, Any]:
+    import shutil
+    import json
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    clean_label = "".join(
+        char.lower() if char.isalnum() else "_"
+        for char in str(label or "manual_snapshot")
+    ).strip("_") or "manual_snapshot"
+
+    snapshot_name = f"{timestamp}_{clean_label}"
+    source_db = store.db_path()
+    snapshot_db = _snapshot_db_path(snapshot_name)
+    metadata_path = _snapshot_metadata_path(snapshot_name)
+
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        conn.commit()
+
+    if not source_db.exists():
+        return {
+            "status": "failed",
+            "reason": "database_not_found",
+            "source_db": str(source_db),
+        }
+
+    shutil.copy2(source_db, snapshot_db)
+
+    health_summary = {
+        "storage": _storage_health_check(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    metadata = {
+        "status": "created",
+        "snapshot_name": snapshot_name,
+        "label": label or "manual_snapshot",
+        "actor": actor,
+        "database_path": str(snapshot_db),
+        "metadata_path": str(metadata_path),
+        "source_db": str(source_db),
+        "size_bytes": snapshot_db.stat().st_size if snapshot_db.exists() else 0,
+        "health_summary": health_summary,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    metadata_path.write_text(json.dumps(metadata, indent=2))
+
+    audit_log(
+        actor=actor,
+        action="system_snapshot_created",
+        target_type="snapshot",
+        target_id=snapshot_name,
+        detail=f"Created system snapshot {snapshot_name}",
+    )
+
+    return metadata
+
+
+def list_system_snapshots(limit: int = 50) -> list[dict[str, Any]]:
+    import json
+
+    snapshots = []
+
+    for metadata_path in sorted(_snapshot_dir().glob("*.json"), reverse=True):
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except Exception:
+            metadata = {
+                "status": "unreadable_metadata",
+                "snapshot_name": metadata_path.stem,
+                "metadata_path": str(metadata_path),
+            }
+
+        db_path = _snapshot_db_path(metadata_path.stem)
+        metadata["database_exists"] = db_path.exists()
+        metadata["metadata_exists"] = metadata_path.exists()
+        metadata["size_bytes"] = db_path.stat().st_size if db_path.exists() else metadata.get("size_bytes", 0)
+        snapshots.append(metadata)
+
+    return snapshots[:limit]
+
+
+def get_system_snapshot(snapshot_name: str) -> dict[str, Any] | None:
+    import json
+
+    safe_name = Path(snapshot_name).name
+    metadata_path = _snapshot_metadata_path(safe_name)
+
+    if not metadata_path.exists():
+        return None
+
+    try:
+        metadata = json.loads(metadata_path.read_text())
+    except Exception:
+        metadata = {
+            "status": "unreadable_metadata",
+            "snapshot_name": safe_name,
+            "metadata_path": str(metadata_path),
+        }
+
+    db_path = _snapshot_db_path(safe_name)
+    metadata["database_exists"] = db_path.exists()
+    metadata["metadata_exists"] = metadata_path.exists()
+    metadata["size_bytes"] = db_path.stat().st_size if db_path.exists() else metadata.get("size_bytes", 0)
+
+    return metadata
+
+
+def restore_system_snapshot(snapshot_name: str, actor: str = "commander") -> dict[str, Any]:
+    import shutil
+
+    safe_name = Path(snapshot_name).name
+    snapshot_db = _snapshot_db_path(safe_name)
+    target_db = store.db_path()
+
+    if not snapshot_db.exists():
+        return {
+            "status": "not_found",
+            "snapshot_name": safe_name,
+            "reason": "snapshot_database_missing",
+        }
+
+    pre_restore = create_system_snapshot(
+        label=f"pre_restore_{safe_name}",
+        actor=actor,
+    )
+
+    shutil.copy2(snapshot_db, target_db)
+
+    audit_log(
+        actor=actor,
+        action="system_snapshot_restored",
+        target_type="snapshot",
+        target_id=safe_name,
+        detail=f"Restored snapshot {safe_name}; pre-restore backup {pre_restore.get('snapshot_name')}",
+    )
+
+    return {
+        "status": "restored",
+        "snapshot_name": safe_name,
+        "target_db": str(target_db),
+        "pre_restore_snapshot": pre_restore.get("snapshot_name"),
+        "restored_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def delete_system_snapshot(snapshot_name: str, actor: str = "commander") -> dict[str, Any]:
+    safe_name = Path(snapshot_name).name
+    db_path = _snapshot_db_path(safe_name)
+    metadata_path = _snapshot_metadata_path(safe_name)
+
+    removed = []
+
+    if db_path.exists():
+        db_path.unlink()
+        removed.append(str(db_path))
+
+    if metadata_path.exists():
+        metadata_path.unlink()
+        removed.append(str(metadata_path))
+
+    if removed:
+        audit_log(
+            actor=actor,
+            action="system_snapshot_deleted",
+            target_type="snapshot",
+            target_id=safe_name,
+            detail=f"Deleted snapshot files: {removed}",
+        )
+
+    return {
+        "status": "deleted" if removed else "not_found",
+        "snapshot_name": safe_name,
+        "removed": removed,
+    }
+
+
+def get_snapshot_system_state() -> dict[str, Any]:
+    snapshots = list_system_snapshots()
+
+    latest = snapshots[0] if snapshots else None
+
+    return {
+        "status": "ok",
+        "snapshot_count": len(snapshots),
+        "latest_snapshot": latest,
+        "snapshots": snapshots,
+        "snapshot_directory": str(_snapshot_dir()),
+        "recommended_action": (
+            "Create a fresh system snapshot before the next major build."
+            if not snapshots
+            else "Snapshot protection active. Create another snapshot before risky schema changes."
+        ),
+    }

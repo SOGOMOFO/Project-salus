@@ -248,3 +248,72 @@ def render_system_health_panel(health: dict[str, Any]) -> str:
           <p><a href="/api/mission-control/health">Health JSON</a> | <a href="/api/mission-control/contract">API Contract</a> | <a href="/api/mission-control/routes">Route Inventory</a></p>
         </section>
     """
+
+
+def render_snapshot_panel(snapshot_state: dict[str, Any]) -> str:
+    snapshots = snapshot_state.get("snapshots", [])
+    latest = snapshot_state.get("latest_snapshot") or {}
+    latest_name = latest.get("snapshot_name", "None")
+
+    rows = ""
+
+    for snapshot in snapshots[:10]:
+        name = cell(snapshot.get("snapshot_name", "unknown"))
+        size = cell(snapshot.get("size_bytes", 0))
+        created = cell(snapshot.get("created_at", ""))
+        db_exists = cell(snapshot.get("database_exists", False))
+
+        rows += f"""
+          <tr>
+            <td>{name}</td>
+            <td>{created}</td>
+            <td>{size}</td>
+            <td>{db_exists}</td>
+            <td>
+              <form method="post" action="/mission-control/snapshot/{name}/restore">
+                <button type="submit">Restore</button>
+              </form>
+              <form method="post" action="/mission-control/snapshot/{name}/delete">
+                <button type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        """
+
+    if not rows:
+        rows = "<tr><td colspan='5'>No snapshots created yet.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Snapshot Backup System</h2>
+          <p class="muted">{cell(snapshot_state.get("recommended_action", ""))}</p>
+          <section class="grid">
+            <div class="card"><h2>Snapshots</h2><div class="metric">{cell(snapshot_state.get("snapshot_count", 0))}</div></div>
+            <div class="card"><h2>Latest</h2><p>{cell(latest_name)}</p></div>
+          </section>
+
+          <form method="post" action="/mission-control/snapshot">
+            <input name="label" placeholder="Snapshot label" value="manual_checkpoint">
+            <button type="submit">Create Snapshot</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Snapshot</th>
+                  <th>Created</th>
+                  <th>Size</th>
+                  <th>DB Exists</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/snapshots">Snapshots JSON</a>
+          </p>
+        </section>
+    """

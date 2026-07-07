@@ -849,6 +849,31 @@ def promote_agent_task_to_mission_from_ui(task_id: int):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/snapshot")
+async def create_snapshot_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mc_service.create_system_snapshot(
+        label=_form_value(form, "label", "manual_checkpoint"),
+        actor="commander_ui",
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/snapshot/{snapshot_name}/restore")
+def restore_snapshot_from_ui(snapshot_name: str):
+    mc_service.restore_system_snapshot(snapshot_name, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/snapshot/{snapshot_name}/delete")
+def delete_snapshot_from_ui(snapshot_name: str):
+    mc_service.delete_system_snapshot(snapshot_name, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -906,6 +931,8 @@ def mission_control_v1(request: Request) -> str:
     agent_risk_dashboard = mc_service.get_agent_risk_dashboard()
 
     system_health = mc_service.get_system_health(request.app)
+
+    snapshot_state = mc_service.get_snapshot_system_state()
 
     return f"""
     <!doctype html>
@@ -1060,6 +1087,8 @@ def mission_control_v1(request: Request) -> str:
 
       <main>
         {mc_views.render_system_health_panel(system_health)}
+
+        {mc_views.render_snapshot_panel(snapshot_state)}
 
         {mc_views.render_agent_risk_dashboard(agent_risk_dashboard)}
         {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}
