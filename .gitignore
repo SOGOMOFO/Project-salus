@@ -27,3 +27,7 @@ backend/memory/memory.sqlite
 data/*.json
 runtime/
 \ndata/core_os_health_checkins.json\ndata/core_os_business_missions.json\n
+# Salus local runtime files
+*.db-shm
+*.db-wal
+snapshots/
