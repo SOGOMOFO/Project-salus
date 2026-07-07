@@ -203,3 +203,157 @@ def cleanup_done_operator_items() -> int:
         )
         conn.commit()
         return cursor.rowcount
+
+
+def get_mission_control_state() -> dict[str, Any]:
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+
+        missions = store.safe_rows(conn, "missions", 100)
+        sitreps = store.safe_rows(conn, "sitreps", 25)
+        aars = store.safe_rows(conn, "aars", 25)
+        briefs = store.safe_rows(conn, "mission_control_briefs", 10)
+        workflows = store.safe_rows(conn, "mission_control_daily_workflow", 10)
+        queue = store.safe_rows(conn, "mission_control_operator_queue", 100)
+
+    active_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "active"
+    ]
+    blocked_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() == "blocked"
+    ]
+    complete_missions = [
+        mission for mission in missions
+        if str(mission.get("status", "")).lower() in {"complete", "completed", "done"}
+    ]
+    open_queue = [
+        item for item in queue
+        if str(item.get("status", "")).lower() in {"open", "in_progress", "blocked"}
+    ]
+
+    return {
+        "status": "ok",
+        "readiness": {
+            "active_missions": len(active_missions),
+            "blocked_missions": len(blocked_missions),
+            "complete_missions": len(complete_missions),
+            "open_queue_items": len(open_queue),
+            "total_missions": len(missions),
+            "total_queue_items": len(queue),
+        },
+        "latest": {
+            "mission": missions[0] if missions else None,
+            "sitrep": sitreps[0] if sitreps else None,
+            "aar": aars[0] if aars else None,
+            "brief": briefs[0] if briefs else None,
+            "workflow": workflows[0] if workflows else None,
+            "queue_item": queue[0] if queue else None,
+        },
+        "missions": missions,
+        "operator_queue": queue,
+        "sitreps": sitreps,
+        "aars": aars,
+        "briefs": briefs,
+        "workflows": workflows,
+    }
+
+
+def list_operator_queue(limit: int = 100) -> list[dict[str, Any]]:
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        return store.safe_rows(conn, "mission_control_operator_queue", limit)
+
+
+def get_latest_commander_brief() -> dict[str, Any] | None:
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        rows = store.safe_rows(conn, "mission_control_briefs", 1)
+        return rows[0] if rows else None
+
+
+def get_readiness_snapshot() -> dict[str, Any]:
+    state = get_mission_control_state()
+    readiness = state["readiness"]
+
+    if readiness["blocked_missions"] > 0:
+        posture = "attention_required"
+    elif readiness["active_missions"] > 0:
+        posture = "operational"
+    else:
+        posture = "idle"
+
+    return {
+        "status": "ok",
+        "posture": posture,
+        "readiness": readiness,
+        "recommended_action": _readiness_recommendation(readiness),
+    }
+
+
+def _readiness_recommendation(readiness: dict[str, Any]) -> str:
+    if readiness["blocked_missions"] > 0:
+        return "Clear blocked missions before adding new work."
+    if readiness["open_queue_items"] > 0 and readiness["active_missions"] < 3:
+        return "Convert the highest-priority queue item into an active mission."
+    if readiness["active_missions"] == 0:
+        return "Create or generate one active mission."
+    return "Execute the highest-priority active mission and capture SITREP before shutdown."
+
+
+def create_mission_from_payload(payload: dict[str, Any]) -> None:
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        store.insert_dynamic(
+            conn,
+            "missions",
+            {
+                "title": payload.get("title") or payload.get("name") or "API Mission",
+                "name": payload.get("name") or payload.get("title") or "API Mission",
+                "status": payload.get("status") or "active",
+                "priority": payload.get("priority") or "medium",
+                "next_action": payload.get("next_action") or payload.get("description") or "Define next action.",
+                "description": payload.get("description") or payload.get("next_action") or "",
+            },
+        )
+        conn.commit()
+
+
+def create_sitrep_from_payload(payload: dict[str, Any]) -> None:
+    summary = payload.get("summary") or payload.get("content") or "API SITREP"
+
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        store.insert_dynamic(
+            conn,
+            "sitreps",
+            {
+                "summary": summary,
+                "content": summary,
+                "status": payload.get("status") or "green",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        conn.commit()
+
+
+def create_aar_from_payload(payload: dict[str, Any]) -> None:
+    lesson = payload.get("lesson") or payload.get("lesson_learned") or payload.get("summary") or "API AAR"
+    mission = payload.get("mission") or payload.get("mission_name") or payload.get("title") or "General"
+
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        store.insert_dynamic(
+            conn,
+            "aars",
+            {
+                "mission": mission,
+                "mission_name": mission,
+                "summary": payload.get("summary") or lesson,
+                "lesson": lesson,
+                "lesson_learned": lesson,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        conn.commit()
