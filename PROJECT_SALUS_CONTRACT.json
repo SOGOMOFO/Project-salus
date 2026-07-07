@@ -1,0 +1,136 @@
+{
+  "auth": {
+    "auth_enabled": true,
+    "default_password_warning": true,
+    "password_set": true,
+    "recommended_action": "Set SALUS_LOCAL_PASSWORD before exposing this outside localhost.",
+    "status": "ok",
+    "token_set": true
+  },
+  "contract_version": "2.0-local-foundation",
+  "failures": [],
+  "manifest": {
+    "architecture_version": "2.0-local-foundation",
+    "major_subsystems": [
+      {
+        "key": "mission_control",
+        "name": "Mission Control Core"
+      },
+      {
+        "key": "agent_execution",
+        "name": "Agent Execution Registry"
+      },
+      {
+        "key": "agent_runtime",
+        "name": "Agent Runtime Worker"
+      },
+      {
+        "key": "external_action_firewall",
+        "name": "External Action Firewall"
+      },
+      {
+        "key": "connectors",
+        "name": "Connector Registry"
+      },
+      {
+        "key": "tool_adapters",
+        "name": "Tool Adapter Interface"
+      },
+      {
+        "key": "model_providers",
+        "name": "Model Provider Router"
+      },
+      {
+        "key": "background_jobs",
+        "name": "Background Job Scheduler"
+      },
+      {
+        "key": "snapshots",
+        "name": "Snapshot Backup System"
+      },
+      {
+        "key": "records",
+        "name": "Memory / Records Link-In"
+      },
+      {
+        "key": "auth",
+        "name": "Local Dashboard Access Gate"
+      }
+    ],
+    "mission_control_route_count": 123,
+    "phase": "Local Phase 2 Foundation",
+    "project": "Project Salus",
+    "route_count": 394,
+    "safety_controls": [
+      "Local dashboard auth gate",
+      "External action firewall",
+      "Agent approval workflow",
+      "Audit logs",
+      "Snapshot backups"
+    ],
+    "status": "ok"
+  },
+  "readiness": {
+    "checks": {
+      "agent_execution": true,
+      "agent_runtime": true,
+      "background_jobs": true,
+      "connectors": true,
+      "daily_loop": true,
+      "external_action_firewall": true,
+      "local_auth": true,
+      "mission_control_state": true,
+      "model_providers": true,
+      "records": true,
+      "risk_dashboard": true,
+      "snapshots": true,
+      "storage": true,
+      "tool_adapters": true
+    },
+    "failed_checks": [],
+    "recommended_action": "Local MVP foundation is ready for daily use and next-stage connector work.",
+    "status": "ready"
+  },
+  "recommended_action": "Project Salus Local Phase 2 contract is valid.",
+  "required_routes": [
+    "/mission-control/v1",
+    "/mission-control/login",
+    "/api/mission-control/dashboard",
+    "/api/mission-control/mvp-readiness",
+    "/api/mission-control/auth/status",
+    "/api/mission-control/background-jobs",
+    "/api/mission-control/model-providers",
+    "/api/mission-control/tool-adapters",
+    "/api/mission-control/firewall",
+    "/api/mission-control/connectors",
+    "/api/mission-control/agent-runtime",
+    "/api/mission-control/agent/state",
+    "/api/mission-control/snapshots",
+    "/api/mission-control/export",
+    "/api/mission-control/architecture",
+    "/api/mission-control/system-contract"
+  ],
+  "route_status": {
+    "checked": true,
+    "missing": [],
+    "present": [
+      "/mission-control/v1",
+      "/mission-control/login",
+      "/api/mission-control/dashboard",
+      "/api/mission-control/mvp-readiness",
+      "/api/mission-control/auth/status",
+      "/api/mission-control/background-jobs",
+      "/api/mission-control/model-providers",
+      "/api/mission-control/tool-adapters",
+      "/api/mission-control/firewall",
+      "/api/mission-control/connectors",
+      "/api/mission-control/agent-runtime",
+      "/api/mission-control/agent/state",
+      "/api/mission-control/snapshots",
+      "/api/mission-control/export",
+      "/api/mission-control/architecture",
+      "/api/mission-control/system-contract"
+    ]
+  },
+  "status": "ok"
+}
