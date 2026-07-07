@@ -4755,3 +4755,125 @@ def get_calendar_read_only_activation_plan():
             "no_write_actions",
         ],
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Unified Connector Readiness Registry
+# -----------------------------------------------------------------------------
+
+def _connector_readiness_entry(
+    connector_key,
+    display_name,
+    mode,
+    live_access_enabled,
+    read_only,
+    write_actions_blocked,
+    permission_decision,
+    readiness_status,
+    recommended_action,
+):
+    return {
+        "connector_key": connector_key,
+        "display_name": display_name,
+        "mode": mode,
+        "live_access_enabled": live_access_enabled,
+        "read_only": read_only,
+        "write_actions_blocked": write_actions_blocked,
+        "permission_decision": permission_decision,
+        "readiness_status": readiness_status,
+        "recommended_action": recommended_action,
+    }
+
+
+def list_connector_readiness_registry():
+    local_permission = evaluate_connector_permission(
+        "local_file_intelligence",
+        "read",
+        "low",
+    )
+
+    gmail_state = get_gmail_read_only_connector_state()
+    calendar_state = get_calendar_read_only_connector_state()
+
+    return [
+        _connector_readiness_entry(
+            connector_key="local_file_intelligence",
+            display_name="Local File Intelligence",
+            mode="active_backend",
+            live_access_enabled=True,
+            read_only=True,
+            write_actions_blocked=True,
+            permission_decision=local_permission.get("decision"),
+            readiness_status="ready_read_only",
+            recommended_action="Continue using as read-only local intelligence source.",
+        ),
+        _connector_readiness_entry(
+            connector_key="gmail_read_only",
+            display_name="Gmail Read-Only Connector",
+            mode=gmail_state.get("mode"),
+            live_access_enabled=gmail_state.get("live_access_enabled"),
+            read_only=gmail_state.get("read_only"),
+            write_actions_blocked=gmail_state.get("write_actions_blocked"),
+            permission_decision=gmail_state.get("permission_check", {}).get("decision"),
+            readiness_status="shell_only",
+            recommended_action=gmail_state.get("recommended_action"),
+        ),
+        _connector_readiness_entry(
+            connector_key="calendar_read_only",
+            display_name="Calendar Read-Only Connector",
+            mode=calendar_state.get("mode"),
+            live_access_enabled=calendar_state.get("live_access_enabled"),
+            read_only=calendar_state.get("read_only"),
+            write_actions_blocked=calendar_state.get("write_actions_blocked"),
+            permission_decision=calendar_state.get("permission_check", {}).get("decision"),
+            readiness_status="shell_only",
+            recommended_action=calendar_state.get("recommended_action"),
+        ),
+    ]
+
+
+def get_connector_readiness(connector_key):
+    for item in list_connector_readiness_registry():
+        if item.get("connector_key") == connector_key:
+            return item
+
+    return {
+        "status": "not_found",
+        "connector_key": connector_key,
+        "readiness_status": "unknown",
+        "recommended_action": "Create connector permission profile before use.",
+    }
+
+
+def get_connector_readiness_registry_state():
+    connectors = list_connector_readiness_registry()
+
+    ready = [
+        item for item in connectors
+        if item.get("readiness_status") == "ready_read_only"
+    ]
+    shell_only = [
+        item for item in connectors
+        if item.get("readiness_status") == "shell_only"
+    ]
+    write_enabled = [
+        item for item in connectors
+        if item.get("write_actions_blocked") is False
+    ]
+
+    return {
+        "status": "ok" if not write_enabled else "warning",
+        "counts": {
+            "connectors": len(connectors),
+            "ready_read_only": len(ready),
+            "shell_only": len(shell_only),
+            "write_enabled": len(write_enabled),
+        },
+        "connectors": connectors,
+        "recommended_action": (
+            "Continue Phase 3 with read-only connector activation controls."
+            if not write_enabled
+            else "Investigate write-enabled connectors before proceeding."
+        ),
+    }

@@ -3717,3 +3717,21 @@ def _phase3_calendar_read_only_activation_plan():
     from backend import mission_control_service as mc_service
     return mc_service.get_calendar_read_only_activation_plan()
 
+
+from backend.routes import mission_control_connector_readiness_api as _mission_control_connector_readiness_api_router
+app.include_router(_mission_control_connector_readiness_api_router.router)
+
+
+
+# Phase 3: Direct connector readiness fallback routes
+@app.get("/api/mission-control/connector-readiness")
+def _phase3_connector_readiness_registry():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_connector_readiness_registry_state()
+
+
+@app.get("/api/mission-control/connector-readiness/{connector_key}")
+def _phase3_connector_readiness(connector_key: str):
+    from backend import mission_control_service as mc_service
+    return mc_service.get_connector_readiness(connector_key)
+
