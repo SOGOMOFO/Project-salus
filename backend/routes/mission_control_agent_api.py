@@ -31,6 +31,15 @@ async def api_create_agent_task(request: Request):
     }
 
 
+
+@router.get("/api/mission-control/agent/tasks/filter")
+def api_filter_agent_tasks(status: str | None = None, risk_level: str | None = None, limit: int = 100):
+    return {
+        "status": "ok",
+        "tasks": mc_service.list_agent_tasks_filtered(status=status, risk_level=risk_level, limit=limit),
+    }
+
+
 @router.get("/api/mission-control/agent/tasks/{task_id}")
 def api_get_agent_task(task_id: int):
     task = mc_service.get_agent_task(task_id)
@@ -98,3 +107,13 @@ def api_agent_permission_gates():
         "status": "ok",
         "permission_gates": mc_service.list_permission_gates(),
     }
+
+
+@router.get("/api/mission-control/agent/risk-dashboard")
+def api_agent_risk_dashboard():
+    return mc_service.get_agent_risk_dashboard()
+
+
+@router.post("/api/mission-control/agent/tasks/{task_id}/promote-to-mission")
+def api_promote_agent_task_to_mission(task_id: int):
+    return mc_service.promote_agent_task_to_mission(task_id, actor="commander_api")

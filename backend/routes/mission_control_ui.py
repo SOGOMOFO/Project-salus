@@ -843,6 +843,12 @@ def complete_agent_task_from_ui(task_id: int):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/agent-task/{task_id}/promote-to-mission")
+def promote_agent_task_to_mission_from_ui(task_id: int):
+    mc_service.promote_agent_task_to_mission(task_id, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -896,6 +902,8 @@ def mission_control_v1() -> str:
         mission_cards = "<p class='muted'>No active missions. Create one below.</p>"
 
     agent_tasks, agent_audit_log = _agent_panel_context()
+
+    agent_risk_dashboard = mc_service.get_agent_risk_dashboard()
 
     return f"""
     <!doctype html>
@@ -1049,6 +1057,7 @@ def mission_control_v1() -> str:
       </header>
 
       <main>
+        {mc_views.render_agent_risk_dashboard(agent_risk_dashboard)}
         {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}
 
         <section class="card full">

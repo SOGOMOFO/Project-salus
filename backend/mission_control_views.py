@@ -168,6 +168,7 @@ def render_agent_task_cards(tasks: list[dict[str, Any]]) -> str:
             <form method="post" action="/mission-control/agent-task/{task_id}/approve"><button>Approve</button></form>
             <form method="post" action="/mission-control/agent-task/{task_id}/reject"><button>Reject</button></form>
             <form method="post" action="/mission-control/agent-task/{task_id}/complete"><button>Mark Complete</button></form>
+            <form method="post" action="/mission-control/agent-task/{task_id}/promote-to-mission"><button>Promote to Mission</button></form>
           </div>
         </article>
         """
@@ -197,3 +198,25 @@ def render_agent_audit_cards(audit_log: list[dict[str, Any]]) -> str:
         """
 
     return body
+
+
+def render_agent_risk_dashboard(dashboard: dict[str, Any]) -> str:
+    counts = dashboard.get("counts", {})
+    by_risk = dashboard.get("by_risk", {})
+    recommendation = cell(dashboard.get("recommended_action", "Review agent execution posture."))
+    posture = cell(dashboard.get("posture", "unknown"))
+
+    return f"""
+        <section class="card">
+          <h2>Agent Risk Dashboard</h2>
+          <p class="muted">Posture: {posture}</p>
+          <section class="grid">
+            <div class="card"><h2>Total Tasks</h2><div class="metric">{cell(counts.get("total", 0))}</div></div>
+            <div class="card"><h2>Pending Approval</h2><div class="metric">{cell(counts.get("pending_approval", 0))}</div></div>
+            <div class="card"><h2>Executable</h2><div class="metric">{cell(counts.get("executable", 0))}</div></div>
+            <div class="card"><h2>Blocked</h2><div class="metric">{cell(counts.get("blocked", 0))}</div></div>
+          </section>
+          <p>Low: {cell(by_risk.get("low", 0))} | Medium: {cell(by_risk.get("medium", 0))} | High: {cell(by_risk.get("high", 0))} | Critical: {cell(by_risk.get("critical", 0))}</p>
+          <p><strong>Recommended Action:</strong> {recommendation}</p>
+        </section>
+    """

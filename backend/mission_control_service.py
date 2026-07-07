@@ -690,3 +690,169 @@ def get_agent_execution_state() -> dict[str, Any]:
         "audit_log": audit,
         "permission_gates": gates,
     }
+
+
+def promote_agent_task_to_mission(task_id: int, actor: str = "commander") -> dict[str, Any]:
+    import json
+
+    ensure_agent_execution_tables()
+    task = get_agent_task(task_id)
+
+    if not task:
+        return {"status": "not_found", "task_id": task_id}
+
+    if int(task.get("requires_approval") or 0) == 1 and int(task.get("approved") or 0) != 1:
+        audit_log(
+            actor=actor,
+            action="agent_task_promotion_blocked",
+            target_type="agent_task",
+            target_id=str(task_id),
+            detail="Promotion blocked because task requires approval.",
+        )
+        return {"status": "blocked", "reason": "approval_required", "task_id": task_id}
+
+    payload_text = task.get("payload") or "{}"
+    try:
+        payload = json.loads(payload_text)
+    except Exception:
+        payload = {}
+
+    objective = payload.get("objective") or payload.get("description") or task.get("title") or "Promoted agent task."
+
+    with store.connect() as conn:
+        store.ensure_tables(conn)
+        store.insert_dynamic(
+            conn,
+            "missions",
+            {
+                "title": task.get("title") or "Promoted Agent Mission",
+                "name": task.get("title") or "Promoted Agent Mission",
+                "status": "active",
+                "priority": _priority_from_risk(task.get("risk_level")),
+                "next_action": objective,
+                "description": objective,
+            },
+        )
+
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET status = ?, result = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                "promoted_to_mission",
+                json.dumps({"mission_title": task.get("title"), "objective": objective}),
+                datetime.now(timezone.utc).isoformat(),
+                task_id,
+            ),
+        )
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="agent_task_promoted_to_mission",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail=f"Promoted agent task '{task.get('title')}' into active mission.",
+    )
+
+    return {"status": "promoted", "task_id": task_id, "mission_title": task.get("title")}
+
+
+def _priority_from_risk(risk_level: str | None) -> str:
+    risk = str(risk_level or "medium").lower()
+    if risk in {"critical", "high"}:
+        return "high"
+    if risk == "low":
+        return "low"
+    return "medium"
+
+
+def get_agent_risk_dashboard() -> dict[str, Any]:
+    ensure_agent_execution_tables()
+    tasks = list_agent_tasks(250)
+
+    by_risk = {
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0,
+        "unknown": 0,
+    }
+
+    by_status: dict[str, int] = {}
+    pending_approval = []
+    blocked = []
+    executable = []
+
+    for task in tasks:
+        risk = str(task.get("risk_level") or "unknown").lower()
+        if risk not in by_risk:
+            risk = "unknown"
+        by_risk[risk] += 1
+
+        status = str(task.get("status") or "unknown").lower()
+        by_status[status] = by_status.get(status, 0) + 1
+
+        if status == "pending_approval":
+            pending_approval.append(task)
+        if status == "blocked":
+            blocked.append(task)
+        if status == "queued" and int(task.get("approved") or 0) == 1:
+            executable.append(task)
+
+    if by_risk["critical"] > 0 or by_risk["high"] > 3:
+        posture = "elevated"
+    elif pending_approval:
+        posture = "approval_required"
+    elif executable:
+        posture = "ready"
+    else:
+        posture = "idle"
+
+    return {
+        "status": "ok",
+        "posture": posture,
+        "counts": {
+            "total": len(tasks),
+            "pending_approval": len(pending_approval),
+            "blocked": len(blocked),
+            "executable": len(executable),
+        },
+        "by_risk": by_risk,
+        "by_status": by_status,
+        "pending_approval": pending_approval[:25],
+        "blocked": blocked[:25],
+        "executable": executable[:25],
+        "recommended_action": _agent_risk_recommendation(posture, pending_approval, executable, blocked),
+    }
+
+
+def _agent_risk_recommendation(
+    posture: str,
+    pending_approval: list[dict[str, Any]],
+    executable: list[dict[str, Any]],
+    blocked: list[dict[str, Any]],
+) -> str:
+    if posture == "elevated":
+        return "Review high and critical risk tasks before allowing further execution."
+    if pending_approval:
+        return "Approve, reject, or convert the oldest pending agent task."
+    if blocked:
+        return "Clear blocked agent tasks or reject stale work."
+    if executable:
+        return "Execute or promote the highest-value queued agent task."
+    return "Create a low-risk agent task or continue current mission execution."
+
+
+def list_agent_tasks_filtered(status: str | None = None, risk_level: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+    tasks = list_agent_tasks(limit=250)
+
+    if status:
+        tasks = [task for task in tasks if str(task.get("status") or "").lower() == status.lower()]
+
+    if risk_level:
+        tasks = [task for task in tasks if str(task.get("risk_level") or "").lower() == risk_level.lower()]
+
+    return tasks[:limit]
