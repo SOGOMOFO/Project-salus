@@ -4078,3 +4078,86 @@ def get_project_salus_contract(app: Any | None = None) -> dict[str, Any]:
             else "Project Salus Local Phase 2 contract is valid."
         ),
     }
+
+
+# --------------------------------------------------------------------
+# Production-Readiness / Security Hardening State
+# -------------------------------------------------------------------
+
+def get_security_hardening_state(app: Any | None = None) -> dict[str, Any]:
+    import os
+
+    auth_state = get_local_auth_state()
+    readiness = get_local_mvp_readiness()
+
+    env = os.getenv("SALUS_ENV", "local")
+    auth_enabled = os.getenv("SALUS_AUTH_ENABLED", "true").lower().strip() not in {"0", "false", "no", "off"}
+    default_password_active = auth_state.get("default_password_warning", False)
+
+    external_actions_allowed = os.getenv("SALUS_ALLOW_EXTERNAL_ACTIONS", "false").lower().strip() in {"1", "true", "yes", "on"}
+    model_external_calls_allowed = os.getenv("SALUS_ALLOW_MODEL_PROVIDER_EXTERNAL_CALLS", "false").lower().strip() in {"1", "true", "yes", "on"}
+    connector_writes_allowed = os.getenv("SALUS_ALLOW_CONNECTOR_WRITES", "false").lower().strip() in {"1", "true", "yes", "on"}
+
+    warnings = []
+    blockers = []
+
+    if not auth_enabled:
+        blockers.append("Local dashboard authentication is disabled.")
+    if default_password_active:
+        warnings.append("Default local password is active. Set SALUS_LOCAL_PASSWORD.")
+    if external_actions_allowed:
+        warnings.append("External actions are enabled by environment flag.")
+    if model_external_calls_allowed:
+        warnings.append("External model-provider calls are enabled by environment flag.")
+    if connector_writes_allowed:
+        warnings.append("Connector writes are enabled by environment flag.")
+    if readiness.get("status") not in {"ready", "ok"}:
+        warnings.append("MVP readiness is degraded.")
+
+    route_status = {"checked": False, "missing": [], "present": []}
+    if app is not None:
+        routes = get_route_inventory(app)
+        paths = {route["path"] for route in routes}
+        required_routes = [
+            "/mission-control/login",
+            "/mission-control/v1",
+            "/api/mission-control/security",
+            "/api/mission-control/auth/status",
+            "/api/mission-control/firewall",
+            "/api/mission-control/system-contract",
+        ]
+        route_status = {
+            "checked": True,
+            "missing": [route for route in required_routes if route not in paths],
+            "present": [route for route in required_routes if route in paths],
+        }
+        if route_status["missing"]:
+            blockers.append("Required security routes are missing.")
+
+    status = "ok"
+    if warnings:
+        status = "warning"
+    if blockers:
+        status = "blocked"
+
+    return {
+        "status": status,
+        "environment": env,
+        "auth_enabled": auth_enabled,
+        "default_password_active": default_password_active,
+        "external_actions_allowed": external_actions_allowed,
+        "model_external_calls_allowed": model_external_calls_allowed,
+        "connector_writes_allowed": connector_writes_allowed,
+        "required_security_headers": [
+            "x-content-type-options",
+            "x-frame-options",
+            "referrer-policy",
+            "permissions-policy",
+            "cache-control",
+        ],
+        "warnings": warnings,
+        "blockers": blockers,
+        "route_status": route_status,
+        "recommended_action": blockers[0] if blockers else warnings[0] if warnings else "Security hardening baseline is acceptable for local Phase 2.",
+    }
+

@@ -3588,3 +3588,20 @@ def _fallback_api_project_salus_contract():
 def _fallback_api_local_auth_status():
     from backend import mission_control_service as mc_service
     return mc_service.get_local_auth_state()
+
+
+@app.get("/api/mission-control/security")
+def _fallback_api_security_hardening_state():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_security_hardening_state(app)
+
+
+@app.middleware("http")
+async def _salus_security_headers_middleware(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault("Cache-Control", "no-store")
+    return response
