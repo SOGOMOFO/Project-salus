@@ -317,3 +317,106 @@ def render_snapshot_panel(snapshot_state: dict[str, Any]) -> str:
           </p>
         </section>
     """
+
+
+def render_records_panel(records: list[dict[str, Any]]) -> str:
+    rows = ""
+
+    for record in records[:10]:
+        rows += f"""
+          <tr>
+            <td>{cell(record.get("record_type", ""))}</td>
+            <td>{cell(record.get("title", ""))}</td>
+            <td>{cell(record.get("source", ""))}</td>
+            <td>{cell(record.get("tags", ""))}</td>
+          </tr>
+        """
+
+    if not rows:
+        rows = "<tr><td colspan='4'>No records captured yet.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Memory / Records Link-In</h2>
+          <p class="muted">Capture decisions, doctrine, lessons, and reference notes.</p>
+
+          <form method="post" action="/mission-control/record">
+            <input name="title" placeholder="Record title" required>
+            <input name="record_type" placeholder="record type" value="note">
+            <input name="tags" placeholder="tags">
+            <textarea name="content" placeholder="Record content"></textarea>
+            <button type="submit">Create Record</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Title</th>
+                  <th>Source</th>
+                  <th>Tags</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
+            </table>
+          </div>
+
+          <p><a href="/api/mission-control/records">Records JSON</a></p>
+        </section>
+    """
+
+
+def render_daily_loop_panel(loops: list[dict[str, Any]], readiness: dict[str, Any]) -> str:
+    rows = ""
+
+    for loop in loops[:10]:
+        rows += f"""
+          <tr>
+            <td>{cell(loop.get("loop_type", ""))}</td>
+            <td>{cell(loop.get("status", ""))}</td>
+            <td>{cell(loop.get("recommended_action", ""))}</td>
+            <td>{cell(loop.get("created_at", ""))}</td>
+          </tr>
+        """
+
+    if not rows:
+        rows = "<tr><td colspan='4'>No daily loops generated yet.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Daily Operating Loop</h2>
+          <p class="muted">Status: {cell(readiness.get("status", "unknown"))}</p>
+          <p><strong>Recommended Action:</strong> {cell(readiness.get("recommended_action", ""))}</p>
+
+          <form method="post" action="/mission-control/daily-loop/morning">
+            <button type="submit">Run Morning Loop</button>
+          </form>
+          <form method="post" action="/mission-control/daily-loop/evening">
+            <button type="submit">Run Evening Loop</button>
+          </form>
+          <form method="post" action="/mission-control/daily-loop/full_cycle">
+            <button type="submit">Run Full Cycle</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loop</th>
+                  <th>Status</th>
+                  <th>Recommended Action</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/daily-loop">Daily Loop JSON</a> |
+            <a href="/api/mission-control/export">Export Command State</a> |
+            <a href="/api/mission-control/mvp-readiness">MVP Readiness</a>
+          </p>
+        </section>
+    """

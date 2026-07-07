@@ -874,6 +874,30 @@ def delete_snapshot_from_ui(snapshot_name: str):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/record")
+async def create_record_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mc_service.create_record_from_payload(
+        {
+            "record_type": _form_value(form, "record_type", "note"),
+            "title": _form_value(form, "title", "Untitled Record"),
+            "content": _form_value(form, "content", ""),
+            "source": "commander_ui",
+            "tags": _form_value(form, "tags", ""),
+        }
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/daily-loop/{loop_type}")
+def create_daily_loop_from_ui(loop_type: str):
+    mc_service.create_daily_loop(loop_type=loop_type, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -933,6 +957,10 @@ def mission_control_v1(request: Request) -> str:
     system_health = mc_service.get_system_health(request.app)
 
     snapshot_state = mc_service.get_snapshot_system_state()
+
+    records = mc_service.list_records()
+    daily_loops = mc_service.list_daily_loops()
+    mvp_readiness = mc_service.get_local_mvp_readiness()
 
     return f"""
     <!doctype html>
@@ -1089,6 +1117,12 @@ def mission_control_v1(request: Request) -> str:
         {mc_views.render_system_health_panel(system_health)}
 
         {mc_views.render_snapshot_panel(snapshot_state)}
+
+        {mc_views.render_daily_loop_panel(daily_loops, mvp_readiness)}
+
+        {mc_views.render_records_panel(records)}
+
+
 
         {mc_views.render_agent_risk_dashboard(agent_risk_dashboard)}
         {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}

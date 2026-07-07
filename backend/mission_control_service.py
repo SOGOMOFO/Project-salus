@@ -951,6 +951,10 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/agent/tasks",
         "/api/mission-control/agent/risk-dashboard",
         "/api/mission-control/snapshots",
+        "/api/mission-control/mvp-readiness",
+        "/api/mission-control/export",
+        "/api/mission-control/daily-loop",
+        "/api/mission-control/records",
     ]
 
     present = {route["path"] for route in routes}
@@ -1227,4 +1231,226 @@ def get_snapshot_system_state() -> dict[str, Any]:
             if not snapshots
             else "Snapshot protection active. Create another snapshot before risky schema changes."
         ),
+    }
+
+
+def ensure_memory_records_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source TEXT NOT NULL,
+                tags TEXT,
+                linked_mission_id TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_daily_loop (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                loop_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                recommended_action TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def create_record_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_memory_records_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_records
+            (record_type, title, content, source, tags, linked_mission_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.get("record_type") or "note",
+                payload.get("title") or "Untitled Record",
+                payload.get("content") or "",
+                payload.get("source") or "commander",
+                payload.get("tags") or "",
+                str(payload.get("linked_mission_id") or ""),
+                now,
+            ),
+        )
+        record_id = cursor.lastrowid
+        conn.commit()
+
+    audit_log(
+        actor=payload.get("source") or "commander",
+        action="record_created",
+        target_type="record",
+        target_id=str(record_id),
+        detail=f"Created record: {payload.get('title') or 'Untitled Record'}",
+    )
+
+    return get_record(record_id) or {"id": record_id, "status": "created"}
+
+
+def get_record(record_id: int) -> dict[str, Any] | None:
+    ensure_memory_records_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_records WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_records(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_memory_records_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_records ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def create_daily_loop(loop_type: str = "full_cycle", actor: str = "commander") -> dict[str, Any]:
+    ensure_memory_records_tables()
+
+    state = get_mission_control_state()
+    agent_state = get_agent_execution_state()
+    risk = get_agent_risk_dashboard()
+    snapshots = get_snapshot_system_state()
+
+    active_missions = state.get("active_missions", [])
+    readiness = state.get("readiness", {})
+    agent_counts = agent_state.get("counts", {})
+
+    summary = (
+        f"Loop={loop_type}; active_missions={len(active_missions)}; "
+        f"readiness={readiness}; agent_counts={agent_counts}; "
+        f"risk_posture={risk.get('posture')}; snapshots={snapshots.get('snapshot_count')}"
+    )
+
+    recommended_action = (
+        risk.get("recommended_action")
+        or readiness.get("recommended_action")
+        or "Execute highest-priority active mission and capture AAR."
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_daily_loop
+            (loop_type, status, summary, recommended_action, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                loop_type,
+                "generated",
+                summary,
+                recommended_action,
+                now,
+            ),
+        )
+        loop_id = cursor.lastrowid
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="daily_loop_generated",
+        target_type="daily_loop",
+        target_id=str(loop_id),
+        detail=f"Generated daily loop: {loop_type}",
+    )
+
+    return get_daily_loop(loop_id) or {"id": loop_id, "status": "generated"}
+
+
+def get_daily_loop(loop_id: int) -> dict[str, Any] | None:
+    ensure_memory_records_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_daily_loop WHERE id = ?",
+            (loop_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_daily_loops(limit: int = 50) -> list[dict[str, Any]]:
+    ensure_memory_records_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_daily_loop ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def export_command_state() -> dict[str, Any]:
+    ensure_memory_records_tables()
+
+    return {
+        "status": "ok",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "mission_control": get_mission_control_state(),
+        "agent_execution": get_agent_execution_state(),
+        "agent_risk": get_agent_risk_dashboard(),
+        "system_health": {
+            "storage": _storage_health_check(),
+            "snapshots": get_snapshot_system_state(),
+        },
+        "records": list_records(100),
+        "daily_loops": list_daily_loops(50),
+        "audit_log": list_audit_log(100),
+    }
+
+
+def get_local_mvp_readiness() -> dict[str, Any]:
+    checks = {
+        "mission_control_state": get_mission_control_state().get("status") == "ok",
+        "agent_execution": get_agent_execution_state().get("status") == "ok",
+        "risk_dashboard": get_agent_risk_dashboard().get("status") == "ok",
+        "snapshots": get_snapshot_system_state().get("status") == "ok",
+        "records": isinstance(list_records(10), list),
+        "daily_loop": isinstance(list_daily_loops(10), list),
+        "storage": _storage_health_check(),
+    }
+
+    failed = [name for name, passed in checks.items() if not passed]
+
+    if failed:
+        status = "degraded"
+        recommendation = "Fix failed MVP checks before adding more features."
+    else:
+        status = "ready"
+        recommendation = "Local MVP foundation is ready for daily use and next-stage connector work."
+
+    return {
+        "status": status,
+        "checks": checks,
+        "failed_checks": failed,
+        "recommended_action": recommendation,
     }
