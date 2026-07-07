@@ -3735,3 +3735,39 @@ def _phase3_connector_readiness(connector_key: str):
     from backend import mission_control_service as mc_service
     return mc_service.get_connector_readiness(connector_key)
 
+
+from backend.routes import mission_control_connector_activation_api as _mission_control_connector_activation_api_router
+app.include_router(_mission_control_connector_activation_api_router.router)
+
+
+
+# Phase 3: Direct connector activation gate fallback routes
+@app.get("/api/mission-control/connector-activation-gate")
+def _phase3_connector_activation_gate_state():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_connector_activation_gate_state()
+
+
+@app.post("/api/mission-control/connector-activation-gate/evaluate")
+def _phase3_connector_activation_gate_evaluate(
+    connector_key: str,
+    requested_controls: list[str] = [],
+):
+    from backend import mission_control_service as mc_service
+    return mc_service.evaluate_connector_activation_gate(
+        connector_key=connector_key,
+        requested_controls=requested_controls,
+    )
+
+
+@app.post("/api/mission-control/connector-activation-gate/request")
+def _phase3_connector_activation_request(
+    connector_key: str,
+    requested_controls: list[str] = [],
+):
+    from backend import mission_control_service as mc_service
+    return mc_service.create_connector_activation_request(
+        connector_key=connector_key,
+        requested_controls=requested_controls,
+    )
+

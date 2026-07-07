@@ -4877,3 +4877,147 @@ def get_connector_readiness_registry_state():
             else "Investigate write-enabled connectors before proceeding."
         ),
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Connector Activation Gate
+# -----------------------------------------------------------------------------
+
+CONNECTOR_ACTIVATION_REQUIRED_CONTROLS = {
+    "read_only_scope",
+    "approval_gate",
+    "audit_log",
+    "permission_profile_check",
+    "no_write_actions",
+}
+
+
+def evaluate_connector_activation_gate(connector_key, requested_controls=None):
+    requested_controls = set(requested_controls or [])
+    readiness = get_connector_readiness(connector_key)
+    profile = get_connector_permission_profile(connector_key)
+
+    if readiness.get("status") == "not_found" or not profile:
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": connector_key,
+            "reason": "Connector readiness or permission profile not found.",
+            "missing_controls": sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS),
+        }
+
+    missing_controls = sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS - requested_controls)
+
+    if profile.get("write_allowed") is True:
+        return {
+            "status": "blocked",
+            "decision": "blocked",
+            "connector_key": connector_key,
+            "reason": "Write-enabled connectors cannot pass the Phase 3 read-only activation gate.",
+            "readiness": readiness,
+            "profile": profile,
+            "missing_controls": missing_controls,
+        }
+
+    if missing_controls:
+        return {
+            "status": "pending_controls",
+            "decision": "pending_controls",
+            "connector_key": connector_key,
+            "reason": "Required activation controls are missing.",
+            "readiness": readiness,
+            "profile": profile,
+            "required_controls": sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS),
+            "provided_controls": sorted(requested_controls),
+            "missing_controls": missing_controls,
+        }
+
+    if profile.get("status") != "enabled":
+        return {
+            "status": "pending_approval",
+            "decision": "pending_approval",
+            "connector_key": connector_key,
+            "reason": "Connector profile is not enabled; commander approval required before activation.",
+            "readiness": readiness,
+            "profile": profile,
+            "required_controls": sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS),
+            "provided_controls": sorted(requested_controls),
+            "missing_controls": [],
+        }
+
+    return {
+        "status": "ready_for_read_only_activation",
+        "decision": "ready_for_read_only_activation",
+        "connector_key": connector_key,
+        "reason": "Connector satisfies Phase 3 read-only activation controls.",
+        "readiness": readiness,
+        "profile": profile,
+        "required_controls": sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS),
+        "provided_controls": sorted(requested_controls),
+        "missing_controls": [],
+    }
+
+
+def create_connector_activation_request(connector_key, requested_controls=None, actor="commander"):
+    gate = evaluate_connector_activation_gate(connector_key, requested_controls)
+    request_id = f"connector_activation_{connector_key}"
+
+    audit_log(
+        actor=actor,
+        action="connector_activation_gate_evaluated",
+        target_type="connector_activation",
+        target_id=request_id,
+        detail=f"Connector activation gate evaluated for {connector_key}: {gate.get('decision')}.",
+    )
+
+    return {
+        "status": "ok",
+        "request_id": request_id,
+        "connector_key": connector_key,
+        "gate": gate,
+        "requires_commander_approval": gate.get("decision") in {
+            "pending_approval",
+            "ready_for_read_only_activation",
+        },
+        "recommended_action": (
+            "Review gate result and approve only if connector remains read-only."
+        ),
+    }
+
+
+def get_connector_activation_gate_state():
+    connectors = list_connector_readiness_registry()
+    evaluations = [
+        evaluate_connector_activation_gate(
+            item.get("connector_key"),
+            CONNECTOR_ACTIVATION_REQUIRED_CONTROLS,
+        )
+        for item in connectors
+    ]
+
+    ready = [
+        item for item in evaluations
+        if item.get("decision") == "ready_for_read_only_activation"
+    ]
+    pending = [
+        item for item in evaluations
+        if item.get("decision") in {"pending_approval", "pending_controls"}
+    ]
+    blocked = [
+        item for item in evaluations
+        if item.get("decision") == "blocked"
+    ]
+
+    return {
+        "status": "ok" if not blocked else "warning",
+        "counts": {
+            "evaluated": len(evaluations),
+            "ready_for_read_only_activation": len(ready),
+            "pending": len(pending),
+            "blocked": len(blocked),
+        },
+        "required_controls": sorted(CONNECTOR_ACTIVATION_REQUIRED_CONTROLS),
+        "evaluations": evaluations,
+        "recommended_action": "Keep shell connectors pending approval until live read-only integrations are explicitly authorized.",
+    }
