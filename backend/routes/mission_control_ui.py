@@ -123,6 +123,18 @@ def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], 
     ])
 
 
+
+def _agent_panel_context() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    try:
+        agent_state = mc_service.get_agent_execution_state()
+        return (
+            agent_state.get("tasks", []),
+            agent_state.get("audit_log", []),
+        )
+    except Exception:
+        return ([], [])
+
+
 def _operator_queue_table(rows: list[dict[str, Any]]) -> str:
     return mc_views.render_operator_queue_table(rows)
 
@@ -496,6 +508,8 @@ def mission_control_ui() -> str:
             or "Review active mission."
         )
 
+    agent_tasks, agent_audit_log = _agent_panel_context()
+
     return f"""
     <!doctype html>
     <html>
@@ -664,6 +678,9 @@ def mission_control_ui() -> str:
         </section>
 
 
+        {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}
+
+
         <section class="card">
           <h2>Daily Commander Brief</h2>
           <p class="muted">Generate a fresh commander brief from current missions, SITREPs, and AARs.</p>
@@ -784,6 +801,48 @@ def cleanup_operator_queue():
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/agent-task")
+async def create_agent_task_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    payload_text = _form_value(form, "payload", "")
+
+    mc_service.create_agent_task_from_payload(
+        {
+            "source": _form_value(form, "source", "manual_commander"),
+            "task_type": _form_value(form, "task_type", "general"),
+            "title": _form_value(form, "title", "Untitled Agent Task"),
+            "risk_level": _form_value(form, "risk_level", "medium"),
+            "payload": {"objective": payload_text},
+        }
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/agent-task/{task_id}/approve")
+def approve_agent_task_from_ui(task_id: int):
+    mc_service.approve_agent_task(task_id, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/agent-task/{task_id}/reject")
+def reject_agent_task_from_ui(task_id: int):
+    mc_service.reject_agent_task(task_id, actor="commander_ui", reason="Rejected from Mission Control UI.")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/agent-task/{task_id}/complete")
+def complete_agent_task_from_ui(task_id: int):
+    mc_service.complete_agent_task(
+        task_id,
+        result={"message": "Marked complete from Mission Control UI."},
+        actor="commander_ui",
+    )
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1() -> str:
     with _connect() as conn:
@@ -797,6 +856,9 @@ def mission_control_v1() -> str:
         daily_workflows = _safe_rows(conn, "mission_control_daily_workflow", 3)
         _ensure_operator_queue_table(conn)
         operator_queue = _safe_rows(conn, "mission_control_operator_queue", 12)
+        agent_state = mc_service.get_agent_execution_state()
+        agent_tasks = agent_state.get("tasks", [])
+        agent_audit_log = agent_state.get("audit_log", [])
 
     active = [
         mission for mission in missions
@@ -832,6 +894,8 @@ def mission_control_v1() -> str:
 
     if not mission_cards:
         mission_cards = "<p class='muted'>No active missions. Create one below.</p>"
+
+    agent_tasks, agent_audit_log = _agent_panel_context()
 
     return f"""
     <!doctype html>
@@ -985,6 +1049,8 @@ def mission_control_v1() -> str:
       </header>
 
       <main>
+        {mc_views.render_agent_task_panel(agent_tasks, agent_audit_log)}
+
         <section class="card full">
           <div class="metrics">
             <div class="metric"><span>Active Missions</span><strong id="active-count">{len(active)}</strong></div>

@@ -102,3 +102,98 @@ def render_operator_inbox_panel() -> str:
           </form>
         </section>
     """
+
+
+def render_agent_task_panel(tasks: list[dict[str, Any]], audit_log: list[dict[str, Any]]) -> str:
+    task_html = render_agent_task_cards(tasks)
+    audit_html = render_agent_audit_cards(audit_log)
+
+    return f"""
+        <section class="card">
+          <h2>Agent Execution Registry</h2>
+          <p class="muted">Approval-gated agent task control for future Salus automation.</p>
+
+          <form method="post" action="/mission-control/agent-task">
+            <input name="title" placeholder="Agent task title" required>
+            <input name="source" value="manual_commander">
+            <input name="task_type" value="general">
+            <select name="risk_level">
+              <option value="low">low</option>
+              <option value="medium" selected>medium</option>
+              <option value="high">high</option>
+              <option value="critical">critical</option>
+            </select>
+            <textarea name="payload" placeholder="Task payload / objective"></textarea>
+            <button type="submit">Create Agent Task</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Agent Tasks</h2>
+          {task_html}
+        </section>
+
+        <section class="card">
+          <h2>Agent Audit Log</h2>
+          {audit_html}
+        </section>
+    """
+
+
+def render_agent_task_cards(tasks: list[dict[str, Any]]) -> str:
+    if not tasks:
+        return "<p class='muted'>No agent tasks recorded.</p>"
+
+    body = ""
+
+    for task in tasks[:20]:
+        task_id = cell(task.get("id", ""))
+        title = cell(task.get("title", "Untitled Agent Task"))
+        source = cell(task.get("source", "unknown"))
+        task_type = cell(task.get("task_type", "general"))
+        status = cell(task.get("status", "unknown"))
+        risk_level = cell(task.get("risk_level", "medium"))
+        approved = cell(task.get("approved", "0"))
+        requires_approval = cell(task.get("requires_approval", "1"))
+
+        body += f"""
+        <article class="mission-card">
+          <div class="mission-top">
+            <strong>{title}</strong>
+            <span>{risk_level}</span>
+          </div>
+          <p class="muted">Source: {source} | Type: {task_type}</p>
+          <p>Status: {status} | Requires approval: {requires_approval} | Approved: {approved}</p>
+          <div class="mission-actions">
+            <form method="post" action="/mission-control/agent-task/{task_id}/approve"><button>Approve</button></form>
+            <form method="post" action="/mission-control/agent-task/{task_id}/reject"><button>Reject</button></form>
+            <form method="post" action="/mission-control/agent-task/{task_id}/complete"><button>Mark Complete</button></form>
+          </div>
+        </article>
+        """
+
+    return body
+
+
+def render_agent_audit_cards(audit_log: list[dict[str, Any]]) -> str:
+    if not audit_log:
+        return "<p class='muted'>No audit events recorded.</p>"
+
+    body = ""
+
+    for event in audit_log[:15]:
+        actor = cell(event.get("actor", "system"))
+        action = cell(event.get("action", "unknown_action"))
+        target_type = cell(event.get("target_type", "unknown_target"))
+        target_id = cell(event.get("target_id", ""))
+        detail = cell(event.get("detail", ""))
+
+        body += f"""
+        <article class="mission-card">
+          <strong>{action}</strong>
+          <p class="muted">Actor: {actor} | Target: {target_type}:{target_id}</p>
+          <p>{detail}</p>
+        </article>
+        """
+
+    return body
