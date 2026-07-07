@@ -51,3 +51,24 @@ logs/
 # Build/runtime
 dist/
 build/
+
+# Project Salus local runtime / recovery artifacts
+backups/
+scratch/
+*.bad
+*.corrupt
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/daily_driver_logs.jsonl
+
+# Project Salus local runtime / recovery artifacts
+backups/
+scratch/
+*.bad
+*.corrupt
+*.quarantined
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/daily_driver_logs.jsonl

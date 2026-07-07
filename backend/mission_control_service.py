@@ -5561,3 +5561,101 @@ def get_daily_driver_log_state(limit=20):
         "entries": entries,
         "recommended_action": "Review recent daily logs before planning the next mission block.",
     }
+
+
+
+# -----------------------------------------------------------------------------
+# Phase 3: Daily Log Viewer + Last AAR Summary
+# -----------------------------------------------------------------------------
+
+def get_last_daily_driver_log_entry(workflow=None):
+    entries = list_daily_driver_log_entries(limit=200)
+
+    for entry in entries:
+        if workflow is None or entry.get("workflow") == workflow:
+            return {
+                "status": "ok",
+                "found": True,
+                "workflow": entry.get("workflow"),
+                "entry": entry,
+            }
+
+    return {
+        "status": "ok",
+        "found": False,
+        "workflow": workflow,
+        "entry": None,
+        "recommended_action": "No matching daily driver log found yet.",
+    }
+
+
+def get_daily_driver_history_view(limit=10):
+    state = get_daily_driver_log_state(limit=limit)
+    entries = state.get("entries", [])
+
+    compact_entries = []
+
+    for entry in entries:
+        payload = entry.get("payload", {})
+        compact_entries.append({
+            "created_at": entry.get("created_at"),
+            "workflow": entry.get("workflow"),
+            "status": entry.get("status"),
+            "actor": entry.get("actor"),
+            "payload_status": payload.get("status") if isinstance(payload, dict) else None,
+            "health_status": payload.get("health_status") if isinstance(payload, dict) else None,
+            "daily_use_ready": payload.get("daily_use_ready") if isinstance(payload, dict) else None,
+            "recommended_next_step": payload.get("recommended_next_step") if isinstance(payload, dict) else None,
+        })
+
+    return {
+        "status": "ok",
+        "view": "daily_driver_history",
+        "counts": state.get("counts", {}),
+        "entries": compact_entries,
+        "last_start": get_last_daily_driver_log_entry("start_my_day"),
+        "last_end": get_last_daily_driver_log_entry("end_my_day"),
+        "last_health": get_last_daily_driver_log_entry("health"),
+        "recommended_action": "Review recent daily logs before planning the next mission block.",
+    }
+
+
+def get_last_end_my_day_aar_summary():
+    last = get_last_daily_driver_log_entry("end_my_day")
+
+    if not last.get("found"):
+        return {
+            "status": "ok",
+            "found": False,
+            "summary": None,
+            "recommended_action": "Record an End My Day log before requesting the last AAR summary.",
+        }
+
+    entry = last.get("entry") or {}
+    payload = entry.get("payload") or {}
+
+    aar_questions = payload.get("aar_questions", [])
+    carry_forward = payload.get("carry_forward_candidates", [])
+    risk_review = payload.get("risk_review", [])
+    tomorrow_setup = payload.get("tomorrow_setup", {})
+
+    return {
+        "status": "ok",
+        "found": True,
+        "view": "last_end_my_day_aar_summary",
+        "created_at": entry.get("created_at"),
+        "health_status": payload.get("health_status"),
+        "daily_use_ready": payload.get("daily_use_ready"),
+        "commander_closeout_intent": payload.get("commander_closeout_intent"),
+        "aar_questions": aar_questions,
+        "carry_forward_candidates": carry_forward,
+        "risk_review": risk_review,
+        "tomorrow_setup": tomorrow_setup,
+        "summary": {
+            "question_count": len(aar_questions),
+            "carry_forward_count": len(carry_forward),
+            "risk_count": len(risk_review),
+            "tomorrow_first_action": tomorrow_setup.get("recommended_first_action"),
+        },
+        "recommended_action": "Use this summary during the next Start My Day workflow.",
+    }

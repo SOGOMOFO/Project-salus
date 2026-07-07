@@ -3834,3 +3834,18 @@ def _phase3_record_daily_driver_log(workflow: str, actor: str = "commander"):
         actor=actor,
     )
 
+
+
+
+# Phase 3: Daily Driver History fallback routes
+@app.get("/api/mission-control/daily-driver-history")
+def _phase3_daily_driver_history(limit: int = 10):
+    from backend import mission_control_service as mc_service
+    return mc_service.get_daily_driver_history_view(limit=limit)
+
+
+@app.get("/api/mission-control/daily-driver-history/last-aar")
+def _phase3_daily_driver_last_aar():
+    from backend import mission_control_service as mc_service
+    return mc_service.get_last_end_my_day_aar_summary()
+
