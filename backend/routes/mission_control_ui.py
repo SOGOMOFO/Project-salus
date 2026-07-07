@@ -954,6 +954,48 @@ def run_agent_runtime_batch_from_ui():
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/firewall/action")
+async def create_external_action_from_ui(request: Request):
+    raw = (await request.body()).decode()
+    form = parse_qs(raw)
+
+    mc_service.create_external_action_request(
+        {
+            "connector_key": _form_value(form, "connector_key", "unknown"),
+            "action_type": _form_value(form, "action_type", "unknown_action"),
+            "title": _form_value(form, "title", "Untitled External Action"),
+            "requested_by": "commander_ui",
+            "payload": {
+                "objective": _form_value(form, "payload", ""),
+            },
+        }
+    )
+
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/firewall/action/{action_id}/approve")
+def approve_external_action_from_ui(action_id: int):
+    mc_service.approve_external_action(action_id, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/firewall/action/{action_id}/reject")
+def reject_external_action_from_ui(action_id: int):
+    mc_service.reject_external_action(
+        action_id,
+        reason="Rejected from Mission Control UI.",
+        actor="commander_ui",
+    )
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/firewall/action/{action_id}/execute-placeholder")
+def execute_external_action_placeholder_from_ui(action_id: int):
+    mc_service.execute_external_action_placeholder(action_id, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -1021,6 +1063,8 @@ def mission_control_v1(request: Request) -> str:
     connector_state = mc_service.get_connector_registry_state()
 
     agent_runtime_state = mc_service.get_agent_runtime_state()
+
+    firewall_state = mc_service.get_external_action_firewall_state()
 
     return f"""
     <!doctype html>
@@ -1178,7 +1222,9 @@ def mission_control_v1(request: Request) -> str:
 
         {mc_views.render_snapshot_panel(snapshot_state)}
 
-                        {mc_views.render_agent_runtime_panel(agent_runtime_state)}
+                                {mc_views.render_external_action_firewall_panel(firewall_state)}
+
+        {mc_views.render_agent_runtime_panel(agent_runtime_state)}
 
         {mc_views.render_connector_registry_panel(connector_state)}
 

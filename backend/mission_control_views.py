@@ -568,3 +568,89 @@ def render_agent_runtime_panel(runtime_state: dict[str, Any]) -> str:
           </p>
         </section>
     """
+
+
+def render_external_action_firewall_panel(firewall_state: dict[str, Any]) -> str:
+    counts = firewall_state.get("counts", {})
+    actions = firewall_state.get("actions", [])
+
+    rows = ""
+
+    for action in actions[:15]:
+        action_id = cell(action.get("id", ""))
+        connector_key = cell(action.get("connector_key", ""))
+        action_type = cell(action.get("action_type", ""))
+        title = cell(action.get("title", ""))
+        risk_level = cell(action.get("risk_level", ""))
+        status = cell(action.get("status", ""))
+
+        rows += f"""
+          <tr>
+            <td>{action_id}</td>
+            <td>{connector_key}</td>
+            <td>{action_type}</td>
+            <td>{title}</td>
+            <td>{risk_level}</td>
+            <td>{status}</td>
+            <td>
+              <form method="post" action="/mission-control/firewall/action/{action_id}/approve">
+                <button type="submit">Approve</button>
+              </form>
+              <form method="post" action="/mission-control/firewall/action/{action_id}/reject">
+                <button type="submit">Reject</button>
+              </form>
+              <form method="post" action="/mission-control/firewall/action/{action_id}/execute-placeholder">
+                <button type="submit">Execute Placeholder</button>
+              </form>
+            </td>
+          </tr>
+        """
+
+    if not rows:
+        rows = "<tr><td colspan='7'>No external actions requested.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>External Action Firewall</h2>
+          <p class="muted">Posture: {cell(firewall_state.get("posture", "unknown"))}</p>
+          <p><strong>Recommended Action:</strong> {cell(firewall_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Pending</h2><div class="metric">{cell(counts.get("pending_approval", 0))}</div></div>
+            <div class="card"><h2>Approved</h2><div class="metric">{cell(counts.get("approved", 0))}</div></div>
+            <div class="card"><h2>Manual Only</h2><div class="metric">{cell(counts.get("manual_only", 0))}</div></div>
+            <div class="card"><h2>Critical</h2><div class="metric">{cell(counts.get("critical", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/firewall/action">
+            <input name="connector_key" placeholder="connector_key" value="gmail">
+            <input name="action_type" placeholder="action_type" value="draft_email">
+            <input name="title" placeholder="Action title" required>
+            <textarea name="payload" placeholder="Payload / objective"></textarea>
+            <button type="submit">Request External Action</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Connector</th>
+                  <th>Action</th>
+                  <th>Title</th>
+                  <th>Risk</th>
+                  <th>Status</th>
+                  <th>Controls</th>
+                </tr>
+              </thead>
+              <tbody>{rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/firewall">Firewall JSON</a> |
+            <a href="/api/mission-control/firewall/actions">Actions JSON</a> |
+            <a href="/api/mission-control/firewall/events">Events JSON</a>
+          </p>
+        </section>
+    """

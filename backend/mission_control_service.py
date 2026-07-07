@@ -954,6 +954,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/mvp-readiness",
         "/api/mission-control/connectors",
         "/api/mission-control/agent-runtime",
+        "/api/mission-control/firewall",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1428,6 +1429,7 @@ def export_command_state() -> dict[str, Any]:
         "daily_loops": list_daily_loops(50),
         "connectors": get_connector_registry_state(),
         "agent_runtime": get_agent_runtime_state(),
+        "external_action_firewall": get_external_action_firewall_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1442,6 +1444,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "daily_loop": isinstance(list_daily_loops(10), list),
         "connectors": get_connector_registry_state().get("status") == "ok",
         "agent_runtime": get_agent_runtime_state().get("status") == "ok",
+        "external_action_firewall": get_external_action_firewall_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -2126,5 +2129,424 @@ def get_agent_runtime_state() -> dict[str, Any]:
             "Run next queued task."
             if queued
             else "Create or approve agent tasks before running the runtime."
+        ),
+    }
+
+
+def ensure_external_action_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_external_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                connector_key TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                risk_level TEXT NOT NULL,
+                status TEXT NOT NULL,
+                requested_by TEXT NOT NULL,
+                approved_by TEXT,
+                rejection_reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_external_action_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                status TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def classify_external_action(connector_key: str, action_type: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload = payload or {}
+    connector = str(connector_key or "").lower()
+    action = str(action_type or "").lower()
+
+    critical_terms = {"send_money", "trade", "delete_account", "credential_change", "wire", "payment"}
+    high_terms = {"send_email", "create_event", "delete", "external_write", "post_webhook", "modify_file"}
+    medium_terms = {"draft_email", "read_email", "read_calendar", "read_finance", "summarize_file"}
+    low_terms = {"read_local", "summarize_local", "status_check", "list"}
+
+    if action in critical_terms or connector == "finance" and action not in {"read_finance", "status_check"}:
+        risk = "critical"
+        requires_approval = True
+        blocked_from_auto_execute = True
+        reason = "Critical external action requires explicit commander approval and cannot auto-execute."
+    elif action in high_terms:
+        risk = "high"
+        requires_approval = True
+        blocked_from_auto_execute = False
+        reason = "High-risk external action requires approval before execution."
+    elif action in medium_terms or connector in {"gmail", "google_calendar", "finance"}:
+        risk = "medium"
+        requires_approval = True
+        blocked_from_auto_execute = False
+        reason = "Sensitive connector action requires approval."
+    elif action in low_terms:
+        risk = "low"
+        requires_approval = False
+        blocked_from_auto_execute = False
+        reason = "Low-risk local/read action may proceed."
+    else:
+        risk = "medium"
+        requires_approval = True
+        blocked_from_auto_execute = False
+        reason = "Unknown action defaults to approval required."
+
+    return {
+        "status": "classified",
+        "connector_key": connector_key,
+        "action_type": action_type,
+        "risk_level": risk,
+        "requires_approval": requires_approval,
+        "blocked_from_auto_execute": blocked_from_auto_execute,
+        "reason": reason,
+    }
+
+
+def record_external_action_event(
+    action_id: int,
+    event_type: str,
+    actor: str,
+    status: str,
+    detail: str,
+) -> dict[str, Any]:
+    ensure_external_action_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_external_action_events
+            (action_id, event_type, actor, status, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                action_id,
+                event_type or "external_action_event",
+                actor or "system",
+                status or "unknown",
+                detail or "",
+                now,
+            ),
+        )
+        event_id = cursor.lastrowid
+        conn.commit()
+
+    return {
+        "id": event_id,
+        "action_id": action_id,
+        "event_type": event_type,
+        "actor": actor,
+        "status": status,
+        "detail": detail,
+        "created_at": now,
+    }
+
+
+def create_external_action_request(payload: dict[str, Any]) -> dict[str, Any]:
+    import json
+
+    ensure_external_action_tables()
+
+    connector_key = payload.get("connector_key") or "unknown"
+    action_type = payload.get("action_type") or "unknown_action"
+    classification = classify_external_action(
+        connector_key=connector_key,
+        action_type=action_type,
+        payload=payload.get("payload") or {},
+    )
+
+    status = "pending_approval" if classification["requires_approval"] else "approved"
+    if classification["blocked_from_auto_execute"]:
+        status = "pending_approval"
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_external_actions
+            (
+                connector_key, action_type, title, payload, risk_level,
+                status, requested_by, approved_by, rejection_reason,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                connector_key,
+                action_type,
+                payload.get("title") or f"{connector_key}:{action_type}",
+                json.dumps(payload.get("payload") or payload),
+                classification["risk_level"],
+                status,
+                payload.get("requested_by") or "agent_runtime",
+                None,
+                None,
+                now,
+                now,
+            ),
+        )
+        action_id = cursor.lastrowid
+        conn.commit()
+
+    record_external_action_event(
+        action_id=action_id,
+        event_type="requested",
+        actor=payload.get("requested_by") or "agent_runtime",
+        status=status,
+        detail=classification["reason"],
+    )
+
+    audit_log(
+        actor=payload.get("requested_by") or "agent_runtime",
+        action="external_action_requested",
+        target_type="external_action",
+        target_id=str(action_id),
+        detail=f"{connector_key}:{action_type} classified as {classification['risk_level']}",
+    )
+
+    return get_external_action(action_id) or {"id": action_id, "status": status}
+
+
+def get_external_action(action_id: int) -> dict[str, Any] | None:
+    ensure_external_action_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        row = conn.execute(
+            "SELECT * FROM mission_control_external_actions WHERE id = ?",
+            (action_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
+
+
+def list_external_actions(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_external_action_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_external_actions ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def list_external_action_events(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_external_action_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            "SELECT * FROM mission_control_external_action_events ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def approve_external_action(action_id: int, actor: str = "commander") -> dict[str, Any]:
+    ensure_external_action_tables()
+    action = get_external_action(action_id)
+
+    if not action:
+        return {"status": "not_found", "action_id": action_id}
+
+    classification = classify_external_action(
+        connector_key=action.get("connector_key"),
+        action_type=action.get("action_type"),
+        payload={},
+    )
+
+    status = "approved"
+    if classification.get("blocked_from_auto_execute"):
+        status = "approved_manual_only"
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_external_actions
+            SET status = ?, approved_by = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (status, actor, now, action_id),
+        )
+        conn.commit()
+
+    record_external_action_event(
+        action_id=action_id,
+        event_type="approved",
+        actor=actor,
+        status=status,
+        detail=classification["reason"],
+    )
+
+    audit_log(
+        actor=actor,
+        action="external_action_approved",
+        target_type="external_action",
+        target_id=str(action_id),
+        detail=f"External action approved with status={status}.",
+    )
+
+    return get_external_action(action_id) or {"status": status, "action_id": action_id}
+
+
+def reject_external_action(action_id: int, reason: str = "", actor: str = "commander") -> dict[str, Any]:
+    ensure_external_action_tables()
+
+    if not get_external_action(action_id):
+        return {"status": "not_found", "action_id": action_id}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_external_actions
+            SET status = ?, rejection_reason = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("rejected", reason or "Rejected by commander.", now, action_id),
+        )
+        conn.commit()
+
+    record_external_action_event(
+        action_id=action_id,
+        event_type="rejected",
+        actor=actor,
+        status="rejected",
+        detail=reason or "Rejected by commander.",
+    )
+
+    audit_log(
+        actor=actor,
+        action="external_action_rejected",
+        target_type="external_action",
+        target_id=str(action_id),
+        detail=reason or "Rejected by commander.",
+    )
+
+    return get_external_action(action_id) or {"status": "rejected", "action_id": action_id}
+
+
+def execute_external_action_placeholder(action_id: int, actor: str = "external_action_firewall") -> dict[str, Any]:
+    action = get_external_action(action_id)
+
+    if not action:
+        return {"status": "not_found", "action_id": action_id}
+
+    current_status = str(action.get("status") or "").lower()
+
+    if current_status not in {"approved"}:
+        record_external_action_event(
+            action_id=action_id,
+            event_type="execution_blocked",
+            actor=actor,
+            status="blocked",
+            detail=f"Action status {current_status} is not executable.",
+        )
+        return {
+            "status": "blocked",
+            "reason": f"Action status {current_status} is not executable.",
+            "action_id": action_id,
+        }
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_external_actions
+            SET status = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("executed_placeholder", now, action_id),
+        )
+        conn.commit()
+
+    record_external_action_event(
+        action_id=action_id,
+        event_type="executed_placeholder",
+        actor=actor,
+        status="executed_placeholder",
+        detail="Placeholder execution recorded. Real connector adapter not attached yet.",
+    )
+
+    audit_log(
+        actor=actor,
+        action="external_action_executed_placeholder",
+        target_type="external_action",
+        target_id=str(action_id),
+        detail="Placeholder execution only. No external system changed.",
+    )
+
+    return {
+        "status": "executed_placeholder",
+        "action_id": action_id,
+        "message": "No external system changed. Connector adapter not attached yet.",
+    }
+
+
+def get_external_action_firewall_state() -> dict[str, Any]:
+    actions = list_external_actions(250)
+    events = list_external_action_events(100)
+
+    pending = [a for a in actions if str(a.get("status") or "").lower() == "pending_approval"]
+    approved = [a for a in actions if str(a.get("status") or "").lower() == "approved"]
+    manual_only = [a for a in actions if str(a.get("status") or "").lower() == "approved_manual_only"]
+    rejected = [a for a in actions if str(a.get("status") or "").lower() == "rejected"]
+    critical = [a for a in actions if str(a.get("risk_level") or "").lower() == "critical"]
+    high = [a for a in actions if str(a.get("risk_level") or "").lower() == "high"]
+
+    posture = "clear"
+    if critical or manual_only:
+        posture = "manual_review_required"
+    elif pending:
+        posture = "approval_required"
+    elif high:
+        posture = "elevated"
+
+    return {
+        "status": "ok",
+        "posture": posture,
+        "counts": {
+            "total": len(actions),
+            "pending_approval": len(pending),
+            "approved": len(approved),
+            "manual_only": len(manual_only),
+            "rejected": len(rejected),
+            "critical": len(critical),
+            "high": len(high),
+            "events": len(events),
+        },
+        "actions": actions,
+        "events": events,
+        "recommended_action": (
+            "Review manual-only or critical external actions."
+            if posture == "manual_review_required"
+            else "Approve or reject pending external actions."
+            if posture == "approval_required"
+            else "External action firewall is clear."
         ),
     }
