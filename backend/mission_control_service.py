@@ -953,6 +953,7 @@ def get_mission_control_contract(app: Any) -> dict[str, Any]:
         "/api/mission-control/snapshots",
         "/api/mission-control/mvp-readiness",
         "/api/mission-control/connectors",
+        "/api/mission-control/agent-runtime",
         "/api/mission-control/export",
         "/api/mission-control/daily-loop",
         "/api/mission-control/records",
@@ -1426,6 +1427,7 @@ def export_command_state() -> dict[str, Any]:
         "records": list_records(100),
         "daily_loops": list_daily_loops(50),
         "connectors": get_connector_registry_state(),
+        "agent_runtime": get_agent_runtime_state(),
         "audit_log": list_audit_log(100),
     }
 
@@ -1439,6 +1441,7 @@ def get_local_mvp_readiness() -> dict[str, Any]:
         "records": isinstance(list_records(10), list),
         "daily_loop": isinstance(list_daily_loops(10), list),
         "connectors": get_connector_registry_state().get("status") == "ok",
+        "agent_runtime": get_agent_runtime_state().get("status") == "ok",
         "storage": _storage_health_check(),
     }
 
@@ -1807,5 +1810,321 @@ def get_connector_registry_state() -> dict[str, Any]:
             "Connector registry ready. Enable only one connector at a time with explicit permission gates."
             if connectors
             else "Seed default connectors."
+        ),
+    }
+
+
+def ensure_agent_runtime_tables() -> None:
+    ensure_agent_execution_tables()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_agent_runtime_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                actor TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.commit()
+
+
+def record_agent_runtime_event(
+    task_id: int,
+    actor: str,
+    event_type: str,
+    status: str,
+    detail: str,
+) -> dict[str, Any]:
+    ensure_agent_runtime_tables()
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO mission_control_agent_runtime_events
+            (task_id, actor, event_type, status, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                task_id,
+                actor or "agent_runtime",
+                event_type or "runtime_event",
+                status or "unknown",
+                detail or "",
+                now,
+            ),
+        )
+        event_id = cursor.lastrowid
+        conn.commit()
+
+    return {
+        "id": event_id,
+        "task_id": task_id,
+        "actor": actor,
+        "event_type": event_type,
+        "status": status,
+        "detail": detail,
+        "created_at": now,
+    }
+
+
+def list_agent_runtime_events(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_agent_runtime_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            """
+            SELECT * FROM mission_control_agent_runtime_events
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def _runtime_can_execute(task: dict[str, Any]) -> tuple[bool, str]:
+    status = str(task.get("status") or "").lower()
+
+    if status not in {"queued", "approved"}:
+        return False, f"Task status is not executable: {status}"
+
+    if int(task.get("requires_approval") or 0) == 1 and int(task.get("approved") or 0) != 1:
+        return False, "Task requires commander approval."
+
+    risk = str(task.get("risk_level") or "medium").lower()
+    if risk == "critical":
+        return False, "Critical-risk tasks are blocked from automatic runtime execution."
+
+    return True, "Task is executable."
+
+
+def start_agent_task_runtime(task_id: int, actor: str = "agent_runtime") -> dict[str, Any]:
+    ensure_agent_runtime_tables()
+    task = get_agent_task(task_id)
+
+    if not task:
+        return {"status": "not_found", "task_id": task_id}
+
+    can_execute, reason = _runtime_can_execute(task)
+
+    if not can_execute:
+        record_agent_runtime_event(
+            task_id=task_id,
+            actor=actor,
+            event_type="runtime_blocked",
+            status="blocked",
+            detail=reason,
+        )
+        audit_log(
+            actor=actor,
+            action="agent_runtime_blocked",
+            target_type="agent_task",
+            target_id=str(task_id),
+            detail=reason,
+        )
+        return {
+            "status": "blocked",
+            "task_id": task_id,
+            "reason": reason,
+        }
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET status = ?, updated_at = ?
+            WHERE id = ? AND status IN ('queued', 'approved')
+            """,
+            ("running", now, task_id),
+        )
+        conn.commit()
+
+    record_agent_runtime_event(
+        task_id=task_id,
+        actor=actor,
+        event_type="runtime_started",
+        status="running",
+        detail="Agent runtime started task.",
+    )
+
+    audit_log(
+        actor=actor,
+        action="agent_runtime_started",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail="Agent runtime started local task execution.",
+    )
+
+    return {
+        "status": "running",
+        "task_id": task_id,
+    }
+
+
+def finish_agent_task_runtime(
+    task_id: int,
+    result: dict[str, Any] | None = None,
+    actor: str = "agent_runtime",
+    final_status: str = "completed",
+) -> dict[str, Any]:
+    import json
+
+    ensure_agent_runtime_tables()
+
+    task = get_agent_task(task_id)
+    if not task:
+        return {"status": "not_found", "task_id": task_id}
+
+    allowed_final = {"completed", "failed", "blocked"}
+    if final_status not in allowed_final:
+        final_status = "completed"
+
+    now = datetime.now(timezone.utc).isoformat()
+    result_payload = result or {"message": f"Task {final_status} by local runtime."}
+
+    with store.connect() as conn:
+        conn.execute(
+            """
+            UPDATE mission_control_agent_tasks
+            SET status = ?, result = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                final_status,
+                json.dumps(result_payload),
+                now,
+                task_id,
+            ),
+        )
+        conn.commit()
+
+    record_agent_runtime_event(
+        task_id=task_id,
+        actor=actor,
+        event_type=f"runtime_{final_status}",
+        status=final_status,
+        detail=json.dumps(result_payload),
+    )
+
+    audit_log(
+        actor=actor,
+        action=f"agent_runtime_{final_status}",
+        target_type="agent_task",
+        target_id=str(task_id),
+        detail=f"Agent runtime marked task {final_status}.",
+    )
+
+    return {
+        "status": final_status,
+        "task_id": task_id,
+        "result": result_payload,
+    }
+
+
+def run_agent_task_once(task_id: int, actor: str = "agent_runtime") -> dict[str, Any]:
+    start = start_agent_task_runtime(task_id, actor=actor)
+
+    if start.get("status") != "running":
+        return start
+
+    task = get_agent_task(task_id) or {}
+
+    simulated_result = {
+        "message": "Local runtime executed task placeholder.",
+        "task_id": task_id,
+        "title": task.get("title"),
+        "task_type": task.get("task_type"),
+        "source": task.get("source"),
+        "next_stage": "Connect real tool adapters in the connector execution layer.",
+    }
+
+    return finish_agent_task_runtime(
+        task_id=task_id,
+        result=simulated_result,
+        actor=actor,
+        final_status="completed",
+    )
+
+
+def run_next_agent_task(actor: str = "agent_runtime") -> dict[str, Any]:
+    ensure_agent_runtime_tables()
+
+    queued = list_agent_tasks_filtered(status="queued", limit=25)
+
+    for task in queued:
+        task_id = int(task.get("id"))
+        can_execute, _reason = _runtime_can_execute(task)
+        if can_execute:
+            return run_agent_task_once(task_id, actor=actor)
+
+    return {
+        "status": "idle",
+        "reason": "No executable queued agent tasks.",
+    }
+
+
+def run_agent_runtime_batch(limit: int = 5, actor: str = "agent_runtime") -> dict[str, Any]:
+    results = []
+
+    for _ in range(max(1, min(limit, 20))):
+        result = run_next_agent_task(actor=actor)
+        results.append(result)
+
+        if result.get("status") == "idle":
+            break
+
+    completed = [result for result in results if result.get("status") == "completed"]
+    blocked = [result for result in results if result.get("status") == "blocked"]
+
+    return {
+        "status": "ok",
+        "attempted": len(results),
+        "completed": len(completed),
+        "blocked": len(blocked),
+        "results": results,
+    }
+
+
+def get_agent_runtime_state() -> dict[str, Any]:
+    ensure_agent_runtime_tables()
+
+    tasks = list_agent_tasks(250)
+    events = list_agent_runtime_events(100)
+
+    running = [task for task in tasks if str(task.get("status") or "").lower() == "running"]
+    queued = [task for task in tasks if str(task.get("status") or "").lower() == "queued"]
+    completed = [task for task in tasks if str(task.get("status") or "").lower() == "completed"]
+    failed = [task for task in tasks if str(task.get("status") or "").lower() == "failed"]
+    blocked = [task for task in tasks if str(task.get("status") or "").lower() == "blocked"]
+
+    return {
+        "status": "ok",
+        "counts": {
+            "running": len(running),
+            "queued": len(queued),
+            "completed": len(completed),
+            "failed": len(failed),
+            "blocked": len(blocked),
+            "runtime_events": len(events),
+        },
+        "running": running[:25],
+        "queued": queued[:25],
+        "latest_events": events[:25],
+        "recommended_action": (
+            "Run next queued task."
+            if queued
+            else "Create or approve agent tasks before running the runtime."
         ),
     }

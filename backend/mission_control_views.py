@@ -507,3 +507,64 @@ def render_connector_registry_panel(connector_state: dict[str, Any]) -> str:
           </p>
         </section>
     """
+
+
+def render_agent_runtime_panel(runtime_state: dict[str, Any]) -> str:
+    counts = runtime_state.get("counts", {})
+    events = runtime_state.get("latest_events", [])
+
+    event_rows = ""
+
+    for event in events[:10]:
+        event_rows += f"""
+          <tr>
+            <td>{cell(event.get("task_id", ""))}</td>
+            <td>{cell(event.get("event_type", ""))}</td>
+            <td>{cell(event.get("status", ""))}</td>
+            <td>{cell(event.get("detail", ""))}</td>
+          </tr>
+        """
+
+    if not event_rows:
+        event_rows = "<tr><td colspan='4'>No runtime events recorded.</td></tr>"
+
+    return f"""
+        <section class="card">
+          <h2>Agent Runtime Worker</h2>
+          <p class="muted">{cell(runtime_state.get("recommended_action", ""))}</p>
+
+          <section class="grid">
+            <div class="card"><h2>Queued</h2><div class="metric">{cell(counts.get("queued", 0))}</div></div>
+            <div class="card"><h2>Running</h2><div class="metric">{cell(counts.get("running", 0))}</div></div>
+            <div class="card"><h2>Completed</h2><div class="metric">{cell(counts.get("completed", 0))}</div></div>
+            <div class="card"><h2>Failed</h2><div class="metric">{cell(counts.get("failed", 0))}</div></div>
+          </section>
+
+          <form method="post" action="/mission-control/agent-runtime/run-next">
+            <button type="submit">Run Next Agent Task</button>
+          </form>
+
+          <form method="post" action="/mission-control/agent-runtime/run-batch">
+            <button type="submit">Run Runtime Batch</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Event</th>
+                  <th>Status</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>{event_rows}</tbody>
+            </table>
+          </div>
+
+          <p>
+            <a href="/api/mission-control/agent-runtime">Runtime JSON</a> |
+            <a href="/api/mission-control/agent-runtime/events">Runtime Events</a>
+          </p>
+        </section>
+    """

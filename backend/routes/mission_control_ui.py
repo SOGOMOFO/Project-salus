@@ -942,6 +942,18 @@ def update_connector_status_from_ui(connector_key: str, status: str):
     return RedirectResponse("/mission-control/v1", status_code=303)
 
 
+@router.post("/mission-control/agent-runtime/run-next")
+def run_next_agent_task_from_ui():
+    mc_service.run_next_agent_task(actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
+@router.post("/mission-control/agent-runtime/run-batch")
+def run_agent_runtime_batch_from_ui():
+    mc_service.run_agent_runtime_batch(limit=5, actor="commander_ui")
+    return RedirectResponse("/mission-control/v1", status_code=303)
+
+
 @router.get("/mission-control/v1", response_class=HTMLResponse)
 def mission_control_v1(request: Request) -> str:
     with _connect() as conn:
@@ -1007,6 +1019,8 @@ def mission_control_v1(request: Request) -> str:
     mvp_readiness = mc_service.get_local_mvp_readiness()
 
     connector_state = mc_service.get_connector_registry_state()
+
+    agent_runtime_state = mc_service.get_agent_runtime_state()
 
     return f"""
     <!doctype html>
@@ -1164,7 +1178,9 @@ def mission_control_v1(request: Request) -> str:
 
         {mc_views.render_snapshot_panel(snapshot_state)}
 
-                {mc_views.render_connector_registry_panel(connector_state)}
+                        {mc_views.render_agent_runtime_panel(agent_runtime_state)}
+
+        {mc_views.render_connector_registry_panel(connector_state)}
 
         {mc_views.render_daily_loop_panel(daily_loops, mvp_readiness)}
 

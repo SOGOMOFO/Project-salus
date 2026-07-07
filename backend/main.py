@@ -3523,6 +3523,7 @@ app.include_router(_workflow_orchestrator_router.router)
 from backend.routes import build_accelerator as _build_accelerator_router
 app.include_router(_build_accelerator_router.router)
 
+from backend.routes import mission_control_agent_runtime_api as _mission_control_agent_runtime_api_router
 from backend.routes import mission_control_connector_api as _mission_control_connector_api_router
 from backend.routes import mission_control_mvp_api as _mission_control_mvp_api_router
 from backend.routes import mission_control_snapshot_api as _mission_control_snapshot_api_router
@@ -3530,6 +3531,7 @@ from backend.routes import mission_control_health_api as _mission_control_health
 from backend.routes import mission_control_agent_api as _mission_control_agent_api_router
 from backend.routes import mission_control_external_api as _mission_control_external_api_router
 from backend.routes import mission_control_ui as _mission_control_ui_router
+app.include_router(_mission_control_agent_runtime_api_router.router)
 app.include_router(_mission_control_connector_api_router.router)
 app.include_router(_mission_control_mvp_api_router.router)
 app.include_router(_mission_control_snapshot_api_router.router)
