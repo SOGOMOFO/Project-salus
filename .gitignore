@@ -31,3 +31,23 @@ runtime/
 *.db-shm
 *.db-wal
 snapshots/
+
+# Project Salus runtime artifacts
+.env
+*.db
+*.db-shm
+*.db-wal
+snapshots/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+
+# Local logs
+logs/
+*.log
+
+# Build/runtime
+dist/
+build/

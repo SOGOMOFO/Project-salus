@@ -1,0 +1,18 @@
+services:
+  project-salus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: project-salus
+    env_file:
+      - .env
+    ports:
+      - "8010:8010"
+    volumes:
+      - salus_data:/app/data
+      - salus_snapshots:/app/snapshots
+    restart: unless-stopped
+
+volumes:
+  salus_data:
+  salus_snapshots:
