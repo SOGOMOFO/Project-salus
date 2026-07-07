@@ -10,114 +10,50 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from urllib.parse import parse_qs
 
+from backend import mission_control_store as mc_store
+
 
 router = APIRouter(tags=["mission-control-ui"])
 
 
 def _db_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "salus.db"
+    return mc_store.db_path()
 
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(_db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
+    return mc_store.connect()
 
 
 def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
-    row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        (table,),
-    ).fetchone()
-    return row is not None
+    return mc_store.table_exists(conn, table)
 
 
 def _safe_rows(conn: sqlite3.Connection, table: str, limit: int = 10) -> list[dict[str, Any]]:
-    if not _table_exists(conn, table):
-        return []
+    return mc_store.safe_rows(conn, table, limit)
 
-    try:
-        rows = conn.execute(f"SELECT * FROM {table} ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-    except sqlite3.OperationalError:
-        rows = conn.execute(f"SELECT * FROM {table} LIMIT ?", (limit,)).fetchall()
 
-    return [dict(row) for row in rows]
 
 
 def _ensure_commander_briefs_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS mission_control_briefs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            brief TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.commit()
+    mc_store.ensure_tables(conn)
 
 
-def _value(row: dict[str, Any], *keys: str, default: str = "") -> str:
+def _ensure_daily_workflow_table(conn: sqlite3.Connection) -> None:
+    mc_store.ensure_tables(conn)
+
+
+def _ensure_operator_queue_table(conn: sqlite3.Connection) -> None:
+    mc_store.ensure_tables(conn)
+
+
+def _value(row: dict[str, Any] | None, *keys: str, default: str = "") -> str:
+    if not row:
+        return default
     for key in keys:
         value = row.get(key)
         if value not in (None, ""):
             return str(value)
     return default
-
-
-def _build_commander_brief(
-    missions: list[dict[str, Any]],
-    sitreps: list[dict[str, Any]],
-    aars: list[dict[str, Any]],
-) -> str:
-    open_missions = [
-        mission for mission in missions
-        if str(mission.get("status", "")).lower() not in {"complete", "completed", "done"}
-    ]
-
-    blocked_missions = [
-        mission for mission in missions
-        if str(mission.get("status", "")).lower() == "blocked"
-    ]
-
-    latest_sitrep = sitreps[0] if sitreps else None
-    latest_aar = aars[0] if aars else None
-
-    next_action = "Create or update the highest-priority active mission."
-    if open_missions:
-        next_action = _value(
-            open_missions[0],
-            "next_action",
-            "title",
-            default="Review the highest-priority active mission.",
-        )
-
-    lines = [
-        "PROJECT SALUS DAILY COMMANDER BRIEF",
-        "",
-        "Operating Status: ACTIVE",
-        f"Open Missions: {len(open_missions)}",
-        f"Blocked Missions: {len(blocked_missions)}",
-        f"Total Missions Reviewed: {len(missions)}",
-        "",
-        "Top Mission Focus:",
-        _value(open_missions[0], "title", default="No active mission found.") if open_missions else "No active mission found.",
-        "",
-        "Latest SITREP:",
-        _value(latest_sitrep, "top_priority", default="No SITREP available.") if latest_sitrep else "No SITREP available.",
-        "",
-        "Latest AAR Lesson:",
-        _value(latest_aar, "lesson_learned", "lesson", default="No AAR lesson captured.") if latest_aar else "No AAR available.",
-        "",
-        "Next Recommended Action:",
-        next_action,
-        "",
-        "Commander Rule:",
-        "Build usable workflow before adding new doctrine.",
-    ]
-
-    return "\n".join(str(line) if line is not None else "" for line in lines)
 
 
 def _cell(value: Any) -> str:
@@ -127,35 +63,11 @@ def _cell(value: Any) -> str:
 
 
 def _ensure_operator_queue_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS mission_control_operator_queue (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            queue_type TEXT NOT NULL,
-            status TEXT NOT NULL,
-            priority TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.commit()
+    mc_store.ensure_tables(conn)
 
 
 def _ensure_daily_workflow_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS mission_control_daily_workflow (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            workflow_type TEXT NOT NULL,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-    conn.commit()
+    mc_store.ensure_tables(conn)
 
 
 def _daily_workflow_content(workflow_type: str, missions: list[dict[str, Any]], sitreps: list[dict[str, Any]], aars: list[dict[str, Any]]) -> str:
@@ -240,6 +152,43 @@ def _operator_queue_table(rows: list[dict[str, Any]]) -> str:
         """
 
     return body
+
+
+
+
+def _build_commander_brief(
+    missions: list[dict[str, Any]],
+    sitreps: list[dict[str, Any]],
+    aars: list[dict[str, Any]],
+) -> str:
+    active = [m for m in missions if str(m.get("status", "")).lower() == "active"]
+    blocked = [m for m in missions if str(m.get("status", "")).lower() == "blocked"]
+    latest_mission = missions[0] if missions else {}
+    latest_sitrep = sitreps[0] if sitreps else {}
+    latest_aar = aars[0] if aars else {}
+
+    lines = [
+        "PROJECT SALUS DAILY COMMANDER BRIEF",
+        "",
+        f"Active missions: {len(active)}",
+        f"Blocked missions: {len(blocked)}",
+        "",
+        f"Primary mission: {_value(latest_mission, 'title', 'name', default='No active mission')}",
+        f"Mission status: {_value(latest_mission, 'status', default='unknown')}",
+        f"Next action: {_value(latest_mission, 'next_action', 'description', default='Define next action.')}",
+        "",
+        f"Latest SITREP: {_value(latest_sitrep, 'summary', 'content', 'status', default='No SITREP recorded.')}",
+        f"Latest AAR lesson: {_value(latest_aar, 'lesson_learned', 'lesson', 'summary', default='No AAR lesson recorded.')}",
+        "",
+        "Next Recommended Action: Execute the highest-priority active mission and clear blockers.",
+        "",
+        "Commander guidance:",
+        "1. Clear blocked missions.",
+        "2. Execute the highest-priority active mission.",
+        "3. Capture SITREP and AAR before shutdown.",
+    ]
+
+    return "\n".join(str(line) if line is not None else "" for line in lines)
 
 
 def _mission_queue(rows: list[dict[str, Any]]) -> str:
@@ -337,56 +286,12 @@ def _form_value(form: dict[str, list[str]], key: str, default: str = "") -> str:
 
 
 def _insert_dynamic_with_conn(conn: sqlite3.Connection, table: str, values: dict[str, Any]) -> None:
-    if not _table_exists(conn, table):
-        return
-
-    existing_columns = {
-        row["name"]
-        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
-    }
-
-    payload = {
-        key: value
-        for key, value in values.items()
-        if key in existing_columns
-    }
-
-    if not payload:
-        return
-
-    columns = ", ".join(payload.keys())
-    placeholders = ", ".join(["?"] * len(payload))
-    conn.execute(
-        f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
-        tuple(payload.values()),
-    )
+    mc_store.insert_dynamic(conn, table, values)
 
 
 def _insert_dynamic(table: str, values: dict[str, Any]) -> None:
     with _connect() as conn:
-        if not _table_exists(conn, table):
-            return
-
-        existing_columns = {
-            row["name"]
-            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
-        }
-
-        payload = {
-            key: value
-            for key, value in values.items()
-            if key in existing_columns
-        }
-
-        if not payload:
-            return
-
-        columns = ", ".join(payload.keys())
-        placeholders = ", ".join(["?"] * len(payload))
-        conn.execute(
-            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})",
-            tuple(payload.values()),
-        )
+        mc_store.insert_dynamic(conn, table, values)
         conn.commit()
 
 
