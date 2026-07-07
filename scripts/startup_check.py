@@ -13,6 +13,7 @@ REQUIRED_FILES = [
 ]
 
 REQUIRED_ROUTES = [
+    "/api/mission-control/local-file-intelligence",
     "/mission-control/v1",
     "/mission-control/login",
     "/api/mission-control/dashboard",

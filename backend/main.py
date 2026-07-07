@@ -3550,6 +3550,8 @@ app.include_router(_mission_control_agent_api_router.router)
 app.include_router(_mission_control_external_api_router.router)
 from backend.routes import mission_control_dashboard_api as _mission_control_dashboard_api_router
 app.include_router(_mission_control_dashboard_api_router.router)
+from backend.routes import mission_control_local_file_intelligence_api as _mission_control_local_file_intelligence_api_router
+app.include_router(_mission_control_local_file_intelligence_api_router.router)
 app.include_router(_mission_control_ui_router.router)
 
 from backend.routes import command_home as _command_home_router

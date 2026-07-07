@@ -4161,3 +4161,244 @@ def get_security_hardening_state(app: Any | None = None) -> dict[str, Any]:
         "recommended_action": blockers[0] if blockers else warnings[0] if warnings else "Security hardening baseline is acceptable for local Phase 2.",
     }
 
+
+
+
+# --------------------------------------------------------------------
+# Phase 3: Local File Intelligence v2
+# --------------------------------------------------------------------
+
+def ensure_local_file_intelligence_tables() -> None:
+    with store.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mission_control_local_file_index (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                relative_path TEXT NOT NULL UNIQUE,
+                file_name TEXT NOT NULL,
+                file_extension TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                line_count INTEGER NOT NULL,
+                summary TEXT NOT NULL,
+                indexed_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+
+
+def _safe_project_root() -> Path:
+    return Path(".").resolve()
+
+
+def _is_indexable_local_file(path: Path) -> bool:
+    ignored_parts = {
+        ".git",
+        ".venv",
+        "__pycache__",
+        ".pytest_cache",
+        "snapshots",
+        "node_modules",
+        "dist",
+        "build",
+    }
+
+    if any(part in ignored_parts for part in path.parts):
+        return False
+
+    if path.name.startswith(".") and path.name not in {".env.example", ".gitignore"}:
+        return False
+
+    if path.suffix.lower() not in {
+        ".py",
+        ".md",
+        ".txt",
+        ".json",
+        ".yml",
+        ".yaml",
+        ".toml",
+        ".sh",
+        ".html",
+        ".css",
+        ".js",
+    }:
+        return False
+
+    try:
+        if path.stat().st_size > 250_000:
+            return False
+    except OSError:
+        return False
+
+    return True
+
+
+
+def _summarize_local_file_text(text: str, max_chars: int = 500) -> str:
+    clean = " ".join(text.replace("\n", " ").split())
+    if not clean:
+        return "Empty file."
+    if len(clean) <= max_chars:
+        return clean
+    return clean[:max_chars].rstrip() + "..."
+
+
+
+def reindex_local_file_intelligence(limit: int = 500, actor: str = "commander") -> dict[str, Any]:
+    ensure_local_file_intelligence_tables()
+
+    root = _safe_project_root()
+    now = datetime.now(timezone.utc).isoformat()
+    indexed = 0
+    skipped = 0
+    errors = []
+
+    candidates = []
+    for file_path in root.rglob("*"):
+        if not file_path.is_file():
+            continue
+        try:
+            relative_candidate = file_path.relative_to(root)
+        except ValueError:
+            skipped += 1
+            continue
+
+        if not _is_indexable_local_file(relative_candidate):
+            skipped += 1
+            continue
+
+        candidates.append(file_path)
+
+    candidates = candidates[:limit]
+
+    with store.connect() as conn:
+        for file_path in candidates:
+            try:
+                relative_path = str(file_path.relative_to(root))
+                raw = file_path.read_text(errors="replace")
+                summary = _summarize_local_file_text(raw)
+                line_count = len(raw.splitlines())
+
+                conn.execute(
+                    """
+                    INSERT INTO mission_control_local_file_index
+                    (
+                        relative_path, file_name, file_extension,
+                        size_bytes, line_count, summary, indexed_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(relative_path) DO UPDATE SET
+                        file_name = excluded.file_name,
+                        file_extension = excluded.file_extension,
+                        size_bytes = excluded.size_bytes,
+                        line_count = excluded.line_count,
+                        summary = excluded.summary,
+                        indexed_at = excluded.indexed_at
+                    """,
+                    (
+                        relative_path,
+                        file_path.name,
+                        file_path.suffix.lower(),
+                        file_path.stat().st_size,
+                        line_count,
+                        summary,
+                        now,
+                    ),
+                )
+                indexed += 1
+            except Exception as exc:
+                errors.append({"path": str(file_path), "error": str(exc)})
+
+        conn.commit()
+
+    audit_log(
+        actor=actor,
+        action="local_file_intelligence_reindex",
+        target_type="local_file_index",
+        target_id="project_root",
+        detail=f"Indexed {indexed} local files; skipped {skipped}; errors {len(errors)}.",
+    )
+
+    return {
+        "status": "ok" if not errors else "partial",
+        "indexed": indexed,
+        "skipped": skipped,
+        "errors": errors[:10],
+        "indexed_at": now,
+    }
+
+
+
+def list_local_file_intelligence(limit: int = 100) -> list[dict[str, Any]]:
+    ensure_local_file_intelligence_tables()
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM mission_control_local_file_index
+            ORDER BY indexed_at DESC, relative_path ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+
+def search_local_file_intelligence(query: str, limit: int = 50) -> list[dict[str, Any]]:
+    ensure_local_file_intelligence_tables()
+
+    q = f"%{query.strip()}%"
+    if not query.strip():
+        return list_local_file_intelligence(limit)
+
+    with store.connect() as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM mission_control_local_file_index
+            WHERE relative_path LIKE ?
+               OR file_name LIKE ?
+               OR summary LIKE ?
+               OR file_extension LIKE ?
+            ORDER BY relative_path ASC
+            LIMIT ?
+            """,
+            (q, q, q, q, limit),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+
+def get_local_file_intelligence_state() -> dict[str, Any]:
+    ensure_local_file_intelligence_tables()
+    files = list_local_file_intelligence(100)
+
+    extensions: dict[str, int] = {}
+    total_size = 0
+
+    for item in files:
+        ext = item.get("file_extension") or "none"
+        extensions[ext] = extensions.get(ext, 0) + 1
+        total_size += int(item.get("size_bytes") or 0)
+
+    return {
+        "status": "ok",
+        "counts": {
+            "indexed_files": len(files),
+            "extensions": extensions,
+            "total_size_bytes_sample": total_size,
+        },
+        "files": files,
+        "recommended_action": (
+            "Run local file reindex after major code or document changes."
+            if files
+            else "Run local file intelligence reindex."
+        ),
+    }
+
